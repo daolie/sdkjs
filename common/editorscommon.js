@@ -2881,7 +2881,7 @@
 	 * @param {Asc.c_oAscChartTypeSettings} chartType
 	 * @returns {*}
 	 */
-	parserHelper.prototype.checkDataRange = function (model, wb, dialogType, dataRange, fullCheck, isRows, chartType)
+	parserHelper.prototype.checkDataRange = function (model, wb, dialogType, dataRange, fullCheck, isRows, subType)
 	{
 		var result, range, sheetModel, checkChangeRange;
 		if (Asc.c_oAscSelectionDialogType.Chart === dialogType)
@@ -2962,7 +2962,7 @@
 					intervalValues = range.r2 - range.r1 + 1;
 				}
 
-				if (Asc.c_oAscChartTypeSettings.stock === chartType)
+				if (Asc.c_oAscChartTypeSettings.stock === subType)
 				{
 					var chartSettings = new Asc.asc_ChartSettings();
 					chartSettings.putType(Asc.c_oAscChartTypeSettings.stock);
@@ -3016,7 +3016,15 @@
 					var newRange = new Asc.Range(location.bbox.c1, location.bbox.r1, location.bbox.c1 + AscCommonExcel.NEW_PIVOT_LAST_COL_OFFSET, location.bbox.r1 + AscCommonExcel.NEW_PIVOT_LAST_ROW_OFFSET);
 					return location.ws.checkPivotReportLocationForError([newRange]);
 				} else {
-					return Asc.c_oAscError.ID.DataRangeError
+					return Asc.c_oAscError.ID.DataRangeError;
+				}
+			}
+			else if (Asc.c_oAscSelectionDialogType.DataValidation === dialogType)
+			{
+				var dataValidaionTest = AscCommonExcel.CDataValidation.prototype.isValidDataRef(dataRange, subType);
+				if (null !== dataValidaionTest)
+				{
+					return dataValidaionTest;
 				}
 			}
 		}
