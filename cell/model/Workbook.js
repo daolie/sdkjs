@@ -8953,10 +8953,10 @@
 		var instersection = _obj.intersection;
 		var contain = _obj.contain;
 		var equalDataValidation;
-		if (this.dataValidations) {
-			for (var i = 0; i < this.dataValidations.length; i++) {
-				if (props.isEqual(this.dataValidations[i])) {
-					equalDataValidation = this.dataValidations[i];
+		if (this.dataValidations && this.dataValidations.elems) {
+			for (var i = 0; i < this.dataValidations.elems.length; i++) {
+				if (props.isEqual(this.dataValidations.elems[i])) {
+					equalDataValidation = this.dataValidations.elems[i];
 					break;
 				}
 			}
@@ -8967,7 +8967,7 @@
 				//в данном случае расширяем диапазон
 
 			} else {
-				this.addDataValidation(props);
+				this.addDataValidation(props, null, true);
 			}
 		}
 	};
@@ -9032,6 +9032,16 @@
 		}
 
 		return {intersection: intersectionArr, contain: containArr};
+	};
+
+	Worksheet.prototype.deleteDataValidationById = function (id) {
+		if (this.dataValidations && this.dataValidations.elems) {
+			for (var i = 0; i < this.dataValidations.elems.length; i++) {
+				if (this.dataValidations.elems[i].Id === id) {
+					this.dataValidations.elems.splice(i, 1);
+				}
+			}
+		}
 	};
 
 //-------------------------------------------------------------------------------------------------
