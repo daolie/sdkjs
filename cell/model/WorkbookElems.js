@@ -8582,6 +8582,26 @@ CustomFilter.prototype.check = function () {
 			this.Val = " ";
 		}
 	}
+
+	if (c_oAscCustomAutoFilter.beginsWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.doesNotBeginWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.endsWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = "*" + this.Val;
+	} else if (c_oAscCustomAutoFilter.doesNotEndWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = "*" + this.Val;
+	} else if (c_oAscCustomAutoFilter.contains === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = "*" + this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.doesNotContain === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = "*" + this.Val + "*";
+	}
 };
 
 CustomFilter.prototype._generateEmptyValueFilter = function () {
