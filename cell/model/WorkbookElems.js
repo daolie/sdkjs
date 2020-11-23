@@ -8350,6 +8350,15 @@ CustomFilters.prototype.toXml = function(writer, name) {
 	}
 	writer.WriteXmlNodeEnd(name);
 };
+CustomFilters.prototype.changeForInterface = function () {
+	var res = this.clone();
+	if(res.CustomFilters) {
+		for(var i = 0; i < res.CustomFilters.length; i++) {
+			res.CustomFilters[i].changeForInterface();
+		}
+	}
+	return res;
+};
 
 var g_oCustomFilter = {
 	Operator	 : 0,
@@ -8656,6 +8665,31 @@ CustomFilter.prototype.Read_FromBinary2 = function(reader) {
 	}
 	if (reader.GetBool()) {
 		this.Val = reader.GetString2();
+	}
+};
+CustomFilter.prototype.changeForInterface = function() {
+	var isStartSpecSymbol = this.Val && this.Val[0] === "*";
+	var isEndSpecSymbol = this.Val && this.Val[this.Val.length - 1] === "*";
+	if (isStartSpecSymbol || isEndSpecSymbol) {
+		var cleanVal = this.Val.substring(isStartSpecSymbol ? 1 : 0, isEndSpecSymbol ? this.Val.length - 2 : this.Val.length);
+		this.Val = cleanVal;
+		if(c_oAscCustomAutoFilter.doesNotEqual === this.Operator) {
+			if (isStartSpecSymbol && isEndSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.doesNotContain;
+			} else if (isStartSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.doesNotEndWith;
+			} else {
+				this.Operator = c_oAscCustomAutoFilter.doesNotBeginWith;
+			}
+		} else {
+			if (isStartSpecSymbol && isEndSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.contains;
+			} else if (isStartSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.endsWith;
+			} else {
+				this.Operator = c_oAscCustomAutoFilter.beginsWith;
+			}
+		}
 	}
 };
 
