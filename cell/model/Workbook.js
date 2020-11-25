@@ -8991,7 +8991,7 @@
 				this.addDataValidation(props, null, true);
 			}
 		} else if (equalRangeDataValidation) {
-			equalRangeDataValidation.set(props);
+			equalRangeDataValidation.set(props, this);
 		}
 	};
 
