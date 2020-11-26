@@ -3472,12 +3472,9 @@ function getMinMaxFromArrPoints(aPoints)
     };
     CSeriesBase.prototype.changeChartType = function(nType) {
         if(!this.parent) {
-            return;
+            return Asc.c_oAscError.ID.No;
         }
-        if(!this.canChangeAxisType()) {
-            return;
-        }
-        this.parent.tryChangeSeriesChartType(this, nType);
+        return this.parent.tryChangeSeriesChartType(this, nType);
     };
 
 function CPlotArea()
@@ -5074,16 +5071,9 @@ function CPlotArea()
             }
         }
     };
-    CChartBase.prototype.tryChangeSeriesChartType = function(oSeries, nType) {
-        if(!this.parent) {
-            return;
-        }
-        if(this.tryChangeType(nType)) {
-            return Asc.c_oAscError.ID.No;
-        }
-        var bIsSecondaryAxis = this.isSecondaryAxis();
+    CChartBase.prototype.tryMoveSeries = function(oSeries, nType, bIsSecondaryAxis) {
         var aCharts = this.parent.charts;
-        var nChart, oChart;
+        var nChart, oChart, oNewSeries;
         for(nChart = 0; nChart < aCharts.length; ++nChart) {
             oChart = aCharts[nChart];
             if(oChart !== this) {
@@ -5096,12 +5086,26 @@ function CPlotArea()
                     if(this.series.length === 0) {
                         this.parent.removeChart(this);
                     }
-                    return Asc.c_oAscError.ID.No;
+                    return true;
                 }
             }
         }
+        return false;
+    };
+    CChartBase.prototype.tryChangeSeriesChartType = function(oSeries, nType) {
+        if(!this.parent) {
+            return Asc.c_oAscError.ID.No;
+        }
+        if(this.tryChangeType(nType)) {
+            return Asc.c_oAscError.ID.No;
+        }
+        var bIsSecondaryAxis = this.isSecondaryAxis();
+        var aCharts = this.parent.charts;
+        var nChart, oChart;
+        if(this.tryMoveSeries(oSeries, nType, bIsSecondaryAxis)) {
+            return Asc.c_oAscError.ID.No;
+        }
         var oNewChart = null;
-        var oNewSeries;
         var aNewAxes = [];
         var nCurType;
         var nResult = Asc.c_oAscError.ID.Unknown;
@@ -5117,30 +5121,25 @@ function CPlotArea()
         else if(this.parent.isHBarType(nType)) {
             for(nChart = 0; nChart < aCharts.length; ++nChart) {
                 oChart = aCharts[nChart];
-                if(bIsSecondaryAxis !== undefined) {
-                    if(oChart.isSecondaryAxis() !== bIsSecondaryAxis) {
-                        continue;
-                    }
-                }
                 nCurType = oChart.getChartType();
                 if(this.parent.isHBarType(nCurType)) {
                     oChartForAxes = oChart;
                 }
-                if(oChartForAxes) {
-                    aNewAxes = oChartForAxes.axId;
+            }
+            if(oChartForAxes) {
+                aNewAxes = oChartForAxes.axId;
+            }
+            else {
+                if(this.parent.hasChartWithSecondaryAxis()) {
+                    nResult = Asc.c_oAscError.ID.SecondaryAxis;
                 }
                 else {
-                    if(this.parent.hasChartWithSecondaryAxis()) {
-                        nResult = Asc.c_oAscError.ID.SecondaryAxis;
-                    }
-                    else {
-                        aNewAxes = this.parent.createHBarAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
-                        this.parent.addAxes(aNewAxes);
-                    }
+                    aNewAxes = this.parent.createHBarAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
+                    this.parent.addAxes(aNewAxes);
                 }
-                if(aNewAxes.length > 0) {
-                    oNewChart = this.parent.createBarChart(nType, [oSeries], aNewAxes, this);
-                }
+            }
+            if(aNewAxes.length > 0) {
+                oNewChart = this.parent.createBarChart(nType, [oSeries], aNewAxes, this);
             }
         }
         else {
@@ -5174,39 +5173,39 @@ function CPlotArea()
                         break;
                     }
                 }
-                if(oChartForAxes) {
-                    aNewAxes = oChartForAxes.axId;
+            }
+            if(oChartForAxes) {
+                aNewAxes = oChartForAxes.axId;
+            }
+            else {
+                if(this.parent.hasChartWithSecondaryAxis()) {
+                    nResult = Asc.c_oAscError.ID.SecondaryAxis;
                 }
                 else {
-                    if(this.parent.hasChartWithSecondaryAxis()) {
-                        nResult = Asc.c_oAscError.ID.SecondaryAxis;
+                    if(bIsScatter) {
+                        aNewAxes = this.parent.createScatterAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
                     }
                     else {
-                        if(bIsScatter) {
-                            aNewAxes = this.parent.createScatterAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
-                        }
-                        else {
-                            aNewAxes = this.parent.createRegularAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
-                        }
-                        this.parent.addAxes(aNewAxes);
+                        aNewAxes = this.parent.createRegularAxes(this.parent.getAxisNumFormatByType(nType, [oSeries]));
                     }
+                    this.parent.addAxes(aNewAxes);
                 }
-                if(aNewAxes.length > 0) {
-                    if(this.isBarType(nType)) {
-                        oNewChart = this.createBarChart(nType, [oSeries], aNewAxes, this);
-                    }
-                    else if(this.isLineType(nType)) {
-                        oNewChart = this.createLineChart(nType, [oSeries], aNewAxes, this);
-                    }
-                    else if(this.isAreaType(nType)) {
-                        oNewChart = this.createAreaChart(nType, [oSeries], aNewAxes, this);
-                    }
-                    else if(this.isScatterType(nType)) {
-                        oNewChart = this.createScatterChart(nType, [oSeries], aNewAxes, this);
-                    }
-                    else if(this.isStockChart(nType)) {
-                        oNewChart = this.createStockChart(nType, [oSeries], aNewAxes, this);
-                    }
+            }
+            if(aNewAxes.length > 0) {
+                if(this.isBarType(nType)) {
+                    oNewChart = this.createBarChart(nType, [oSeries], aNewAxes, this);
+                }
+                else if(this.isLineType(nType)) {
+                    oNewChart = this.createLineChart(nType, [oSeries], aNewAxes, this);
+                }
+                else if(this.isAreaType(nType)) {
+                    oNewChart = this.createAreaChart(nType, [oSeries], aNewAxes, this);
+                }
+                else if(this.isScatterType(nType)) {
+                    oNewChart = this.createScatterChart(nType, [oSeries], aNewAxes, this);
+                }
+                else if(this.isStockChart(nType)) {
+                    oNewChart = this.createStockChart(nType, [oSeries], aNewAxes, this);
                 }
             }
         }
@@ -5215,8 +5214,23 @@ function CPlotArea()
                 this.parent.removeChart(this);
             }
             this.parent.addChart(oNewChart, 0);
+            nResult = Asc.c_oAscError.ID.No;
         }
         return nResult;
+    };
+    CChartBase.prototype.tryChangeSeriesAxesType = function(oSeries, bIsSecondaryAxis) {
+        if(this.isSecondaryAxis() === bSecondary) {
+            return Asc.c_oAscError.ID.No;
+        }
+        if(!this.parent) {
+            return Asc.c_oAscError.ID.No;
+        }
+        var nChart, oChart;
+        var aCharts = this.parent.charts;
+        var nCurChartType = this.getChartType();
+        if(this.tryMoveSeries(oSeries, nCurChartType, bIsSecondaryAxis)) {
+            return Asc.c_oAscError.ID.No;
+        }
     };
     CChartBase.prototype.tryChangeType = function(nNewType) {
         if(!this.parent) {
@@ -5232,7 +5246,8 @@ function CPlotArea()
         var aCharts = this.parent.charts;
         for(nChart = 0; nChart < aCharts.length; ++nChart) {
             if(aCharts[nChart] === this) {
-                this.parent.remove
+                this.parent.removeChartByPos(nChart);
+                return;
             }
         }
     };
