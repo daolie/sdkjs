@@ -444,10 +444,10 @@ function (window, undefined) {
     drawingsChangesMap[AscDFH.historyitem_View3d_SetRAngAx]                              = function(oClass, value){oClass.rAngAx        =  value; oClass.Refresh_RecalcData();};
     drawingsChangesMap[AscDFH.historyitem_View3d_SetRotX]                                = function(oClass, value){oClass.rotX          =  value; oClass.Refresh_RecalcData();};
     drawingsChangesMap[AscDFH.historyitem_View3d_SetRotY]                                = function(oClass, value){oClass.rotY          =  value; oClass.Refresh_RecalcData();};
-    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetIdx]                     = function(oClass, value){oClass.idx           =  value; oClass.Refresh_RecalcData();};
-    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetOrder]                   = function(oClass, value){oClass.order         =  value; oClass.Refresh_RecalcData();};
-    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetTx]                      = function(oClass, value){oClass.tx            =  value; oClass.Refresh_RecalcData();};
-    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetSpPr]                    = function(oClass, value){oClass.spPr          =  value; oClass.Refresh_RecalcData();};
+    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetIdx]                     = function(oClass, value){oClass.idx           =  value; oClass.Refresh_RecalcData({Type: AscDFH.historyitem_CommonSeries_SetIdx});};
+    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetOrder]                   = function(oClass, value){oClass.order         =  value; oClass.Refresh_RecalcData({Type: AscDFH.historyitem_CommonSeries_SetOrder});};
+    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetTx]                      = function(oClass, value){oClass.tx            =  value; oClass.Refresh_RecalcData({Type: AscDFH.historyitem_CommonSeries_SetTx});};
+    drawingsChangesMap[AscDFH.historyitem_CommonSeries_SetSpPr]                    = function(oClass, value){oClass.spPr          =  value; oClass.Refresh_RecalcData({Type: AscDFH.historyitem_CommonSeries_SetSpPr});};
 
 
 
@@ -2713,6 +2713,31 @@ function getMinMaxFromArrPoints(aPoints)
     }
     CSeriesBase.prototype = Object.create(AscFormat.CBaseObject.prototype);
     CSeriesBase.prototype.constructor = CSeriesBase;
+    CSeriesBase.prototype.updateData = function(displayEmptyCellsAs, displayHidden) {
+        if(this.val) {
+            this.val.update(displayEmptyCellsAs, displayHidden, this);
+        }
+        if(this.yVal) {
+            this.yVal.update(displayEmptyCellsAs, displayHidden, this);
+        }
+        if(this.cat) {
+            this.cat.update(this);
+        }
+        if(this.xVal) {
+            this.xVal.update(this);
+        }
+        if(this.tx) {
+            this.tx.update();
+        }
+    };
+    CSeriesBase.prototype.Refresh_RecalcData = function(oData) {
+        //TODO: rework this
+        var oChart = this.parent;
+        if(oChart && oChart.parent && oChart.parent.parent && oChart.parent.parent.parent)
+        {
+            oChart.parent.parent.parent.handleUpdateType();
+        }
+    };
     CSeriesBase.prototype.setIdx = function(val) {
         if(History.CanAddChanges()) {
             History.Add(new CChangesDrawingsLong(this, AscDFH.historyitem_CommonSeries_SetIdx, this.idx, val));
@@ -2780,6 +2805,9 @@ function getMinMaxFromArrPoints(aPoints)
     CSeriesBase.prototype.documentCreateFontMap = function(allFonts) {
         this.dLbls && this.dLbls.documentCreateFontMap(allFonts);
     };
+    CSeriesBase.prototype.applyLabelsFunction = function(fCallback, value, oDD) {
+        this.dLbls && this.dLbls.applyLabelsFunction(fCallback, value, oDD);
+    };
     CSeriesBase.prototype.getAllRasterImages = function(images)  {
         this.spPr && this.spPr.checkBlipFillRasterImage(images);
         this.dLbls && this.dLbls.getAllRasterImages(images);
@@ -2798,6 +2826,13 @@ function getMinMaxFromArrPoints(aPoints)
             checkSpPrRasterImages(this.dPt[i].spPr);
             this.dPt[i].marker && checkSpPrRasterImages(this.dPt[i].marker.spPr);
         }
+    };
+    CSeriesBase.prototype.getValRefFormula = function() {
+        var oVal = this.val || this.yVal;
+        if(oVal) {
+            return oVal.getRefFormula();
+        }
+        return null;
     };
     CSeriesBase.prototype.getCatName = function(idx) {
         var pts;
@@ -2970,8 +3005,12 @@ function getMinMaxFromArrPoints(aPoints)
         if(typeof sName === "string" && sName.length > 0) {
             var oTx = new CTx();
             oResult = oTx.setValues(sName);
-            if(oResult.isSuccessful()) {
+            if(oResult.isSuccessful() && oTx.isValid()) {
                 this.setTx(oTx);
+            }
+            else {
+                oResult = new CParseResult();
+                this.setTx(null);
             }
         }
         else {
@@ -2993,11 +3032,10 @@ function getMinMaxFromArrPoints(aPoints)
             oResult.setError(Asc.c_oAscError.ID.NoValues);
             return oResult;
         }
-        if(this.val === null) {
-            this.setVal(new CYVal());
-        }
-        if(this.val) {
-            oResult = this.val.setValues(sValues);
+        var oVal = new CYVal();
+        oResult = oVal.setValues(sValues);
+        if(oVal.isValid()) {
+            this.setVal(oVal);
         }
         else {
             oResult = new CParseResult();
@@ -3006,6 +3044,9 @@ function getMinMaxFromArrPoints(aPoints)
         return oResult;
     };
     CSeriesBase.prototype.setCategories = function(sValues) {
+        if(!this.setCat) {
+            return;
+        }
         var oResult;
         if(sValues === null || typeof sValues === "string" && sValues.length === 0) {
             if(this.cat) {
@@ -3015,10 +3056,18 @@ function getMinMaxFromArrPoints(aPoints)
             oResult.setError(Asc.c_oAscError.ID.No);
         }
         else {
-            if(!this.cat) {
-                this.setCat(new CCat());
+            var oCat = new CCat();
+            oResult = oCat.setValues(sValues);
+            if(oCat.isValid()) {
+                this.setCat(oCat);
             }
-            oResult = this.cat.setValues(sValues);
+            else {
+                if(this.cat) {
+                    this.setCat(null);
+                }
+                oResult = new CParseResult();
+                oResult.setError(Asc.c_oAscError.ID.DataRangeError);
+            }
         }
         return oResult;
      };
@@ -3127,10 +3176,18 @@ function getMinMaxFromArrPoints(aPoints)
             oResult.setError(Asc.c_oAscError.ID.No);
         }
         else {
-            if(this.xVal === null) {
-                this.setXVal(new CCat());
+            var oCat = new CCat();
+            oResult = oCat.setValues(sValues);
+            if(oCat.isValid()) {
+                this.setXVal(oCat);
             }
-            oResult = this.xVal.setValues(sValues);
+            else {
+                if(this.xVal) {
+                    this.setXVal(null);
+                }
+                oResult = new CParseResult();
+                oResult.setError(Asc.c_oAscError.ID.DataRangeError);
+            }
         }
         return oResult;
     };
@@ -3141,11 +3198,10 @@ function getMinMaxFromArrPoints(aPoints)
             oResult.setError(Asc.c_oAscError.ID.NoValues);
             return oResult;
         }
-        if(this.yVal === null) {
-            this.setYVal(new CYVal());
-        }
-        if(this.yVal) {
-            oResult = this.yVal.setValues(sValues);
+        var oVal = new CYVal();
+        oResult = oVal.setValues(sValues);
+        if(oVal.isValid()) {
+            this.setYVal(oVal);
         }
         else {
             oResult = new CParseResult();
@@ -3158,7 +3214,7 @@ function getMinMaxFromArrPoints(aPoints)
             return;
         }
         this.parent.removeSeries(this.parent.getSeriesArrayIdx(this));
-        this.parent.reindexSeries();
+        this.parent.reorderSeries();
     };
     CSeriesBase.prototype.setDLblsDeleteValue = function(bVal) {
         if(this.dLbls) {
@@ -3903,6 +3959,11 @@ function CPlotArea()
     CPlotArea.prototype.reindexSeries = function() {
         if(this.parent) {
             this.parent.reindexSeries();
+        }
+    };
+    CPlotArea.prototype.reorderSeries = function() {
+        if(this.parent) {
+            this.parent.reorderSeries();
         }
     };
     CPlotArea.prototype.moveSeriesUp = function(oSeries) {
@@ -4723,7 +4784,12 @@ function CPlotArea()
         if(this.parent) {
             this.parent.reindexSeries();
         }
-    };    
+    };
+    CChartBase.prototype.reorderSeries = function() {
+        if(this.parent) {
+            this.parent.reorderSeries();
+        }
+    };
     CChartBase.prototype.moveSeriesUp = function(oSeries) {
         if(this.parent) {
             this.parent.moveSeriesUp(oSeries);
@@ -4732,6 +4798,16 @@ function CPlotArea()
     CChartBase.prototype.moveSeriesDown = function(oSeries) {
         if(this.parent) {
             this.parent.moveSeriesDown(oSeries);
+        }
+    };
+    CChartBase.prototype.sortSeries = function() {
+        var aAllSeries = [].concat(this.series);
+        this.removeAllSeries();
+        aAllSeries.sort(function(a, b){
+            return a.order - b.order;
+        });
+        for(var nSeries = 0; nSeries < aAllSeries.length; ++nSeries) {
+            this.addSer(aAllSeries[nSeries]);
         }
     };
     CChartBase.prototype.onDataUpdate = function() {
@@ -4767,6 +4843,12 @@ function CPlotArea()
         this.dLbls && this.dLbls.documentCreateFontMap(allFonts);
         for(var i = 0 ; i < this.series.length; ++i) {
             this.series[i].documentCreateFontMap(allFonts);
+        }
+    };
+    CChartBase.prototype.applyLabelsFunction = function(fCallback, value, oDD) {
+        this.dLbls && this.dLbls.applyLabelsFunction(fCallback, value, oDD);
+        for(var i = 0 ; i < this.series.length; ++i) {
+            this.series[i].applyLabelsFunction(fCallback, value, oDD);
         }
     };
     CChartBase.prototype.getAllRasterImages = function(images) {
@@ -5242,10 +5324,6 @@ function CPlotArea()
             {
                 break;
             }
-            case AscDFH.historyitem_CommonChart_RemoveSeries:
-            {
-                break;
-            }
             case AscDFH.historyitem_BarChart_AddAxId:
             case AscDFH.historyitem_CommonChart_AddAxId:
             {
@@ -5291,6 +5369,7 @@ function CPlotArea()
             case AscDFH.historyitem_CommonChart_AddSeries:
             case AscDFH.historyitem_CommonChart_AddFilteredSeries:
             case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+            case AscDFH.historyitem_CommonChart_RemoveSeries:
             {
                 if(this.parent && this.parent.parent && this.parent.parent.parent)
                 {
@@ -8262,6 +8341,60 @@ function CValAx()
             }
         }
     };
+    CValAx.prototype.getFormatCode = function(oChartSpace, oSeries) {
+        var oNumFmt = this.numFmt;
+        var sFormatCode = null;
+        if(oNumFmt) {
+            sFormatCode = oNumFmt.formatCode;
+            if(false === oNumFmt.sourceLinked && typeof sFormatCode === "string" && sFormatCode.length > 0) {
+                return sFormatCode;
+            }
+        }
+        if(oSeries) {
+            if(oSeries.getObjectType() === AscDFH.historyitem_type_ScatterSer &&
+                (this.axPos === AscFormat.AX_POS_B || this.axPos === AscFormat.AX_POS_T)) {
+                var oXVal = oSeries.xVal;
+                if(oXVal) {
+                    var oXValLit = (oXVal.numRef && oXVal.numRef.numCache || oXVal.numLit || oXVal.strRef && oXVal.strRef.strCache);
+                    if(oXValLit) {
+                        var aXPts = oXValLit.pts;
+                        if(aXPts[0] &&  aXPts[0].idx === 0 && typeof aXPts[0].formatCode === "string" && aXPts[0].formatCode.length > 0){
+                            sFormatCode = aXPts[0].formatCode;
+                        }
+                        else {
+                            if(oXValLit.formatCode) {
+                                sFormatCode = oXValLit.formatCode;
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                var aPoints = AscFormat.getPtsFromSeries(oSeries);
+                if(aPoints[0] &&  aPoints[0].idx === 0 && typeof aPoints[0].formatCode === "string" && aPoints[0].formatCode.length > 0){
+                    sFormatCode = aPoints[0].formatCode;
+                }
+                else {
+                    if(oSeries.parent
+                        && (oSeries.parent.getObjectType() === AscDFH.historyitem_type_BarChart  && oSeries.parent.grouping ===  AscFormat.BAR_GROUPING_PERCENT_STACKED
+                        || oSeries.parent.getObjectType() !== AscDFH.historyitem_type_BarChart && oSeries.parent.grouping === AscFormat.GROUPING_PERCENT_STACKED)) {
+                        sFormatCode = "0%";
+                    }
+                    else if(oChartSpace.worksheet) {
+                        var oBBox = oChartSpace._recalculateBBox([oSeries]);
+                        if(oBBox && oBBox.seriesBBoxes[0] && oBBox.seriesBBoxes[0].bbox) {
+                            var cell = oChartSpace.worksheet.getCell3(oBBox.seriesBBoxes[0].bbox.r1, oBBox.seriesBBoxes[0].bbox.c1);
+                            sFormatCode = cell.getNumFormatStr();
+                        }
+                    }
+                }
+                if(!sFormatCode) {
+                    sFormatCode = oSeries.getFormatCode();
+                }
+            }
+        }
+        return sFormatCode;
+    };
     CValAx.prototype.merge = function(oAxis) {
         if(!oAxis) {
             return;
@@ -8798,19 +8931,15 @@ CCat.prototype =
     },
     Refresh_RecalcData: function()
     {},
-
     Write_ToBinary2: function(w)
     {
         w.WriteLong(this.getObjectType());
         w.WriteString2(this.Get_Id());
     },
-
     Read_FromBinary2: function(r)
     {
         this.Id = r.GetString2();
     },
-
-
     createDuplicate: function()
     {
         var c = new CCat();
@@ -8836,12 +8965,10 @@ CCat.prototype =
         }
         return c;
     },
-
     getObjectType: function()
     {
         return AscDFH.historyitem_type_Cat;
     },
-
     setFromOtherObject: function(o)
     {
         if(o.multiLvlStrRef)
@@ -8855,7 +8982,6 @@ CCat.prototype =
         if(o.strRef)
             this.setStrRef(o.strRef);
     },
-
     setMultiLvlStrRef: function(pr)
     {
         History.Add(new CChangesDrawingsObject(this, AscDFH.historyitem_Cat_SetMultiLvlStrRef, this.multiLvlStrRef, pr));
@@ -8881,7 +9007,6 @@ CCat.prototype =
         History.Add(new CChangesDrawingsObject(this, AscDFH.historyitem_Cat_SetStrRef, this.multiLvlStrRef, pr));
         this.strRef = pr;
     },
-
     setValues: function(sValues) {
         var oNumRef, oNumLit, oStrRef, oStrLit, oMultiLvl, oRef, oResult;
         oResult = new CParseResult();
@@ -8899,7 +9024,7 @@ CCat.prototype =
                 }
             }
             if(!oStrRef && !oMultiLvl) {
-                fParseNumLit(sValues, true, oResult);
+                fParseNumLit(sValues, false, oResult);
                 oNumLit = oResult.getObject();
                 if(!oNumLit) {
                     fParseStrLit(sValues, oResult);
@@ -8951,7 +9076,6 @@ CCat.prototype =
         }
         return oResult;
     },
-
     getValues: function(nMaxCount) {
         if(this.numLit) {
             return this.numLit.getValues(nMaxCount);
@@ -8969,7 +9093,6 @@ CCat.prototype =
             return this.multiLvlStrRef.getValues(nMaxCount);
         }
     },
-
     getFormula: function() {
         if(this.numLit) {
             return this.numLit.getFormula();
@@ -8999,6 +9122,59 @@ CCat.prototype =
             return this.multiLvlStrRef.getParsedRefs();
         }
         return [];
+    },
+    isValid: function() {
+        if(this.multiLvlStrRef ||
+            this.numLit ||
+            this.numRef ||
+            this.strLit ||
+            this.strRef) {
+            return true;
+        }
+        return false;
+    },
+    getStringPointsLit: function() {
+        if(this.strRef && this.strRef.strCache) {
+            return this.strRef.strCache;
+        }
+        else if(this.strLit) {
+            return this.strLit;
+        }
+        else if(this.multiLvlStrRef) {
+            return this.multiLvlStrRef.getFirstLvlCache();
+        }
+        return null;
+    },
+    getLit: function() {
+        var oLit = null;
+        if(this.strRef && this.strRef.strCache){
+            oLit = this.strRef.strCache;
+        }
+        else if(this.strLit){
+            oLit = this.strLit;
+        }
+        else if(this.numRef && this.numRef.numCache){
+            oLit = this.numRef.numCache;
+        }
+        else if(this.numLit){
+            oLit = this.numLit;
+        }
+        else if(this.multiLvlStrRef) {
+            //TODO: implement multiLvlStrCache and remove this
+            oLit = this.multiLvlStrRef.getFirstLvlCache();
+        }
+        return oLit;
+    },
+    update: function(oSeries) {
+        if(this.multiLvlStrRef) {
+            this.multiLvlStrRef.updateCache(oSeries);
+        }
+        if(this.numRef) {
+            this.numRef.updateCache();
+        }
+        if(this.strRef) {
+            this.strRef.updateCache();
+        }
     }
  };
 
@@ -9109,7 +9285,13 @@ CChartText.prototype =
     {
         History.Add(new CChangesDrawingsObject(this, AscDFH.historyitem_ChartText_SetStrRef, this.strRef, pr));
         this.strRef = pr;
-            }
+    },
+
+    update: function() {
+        if(this.strRef) {
+            this.strRef.updateCache();
+        }
+    }
 };
 
 function CDLbls()
@@ -9214,6 +9396,14 @@ function CDLbls()
         {
             this.dLbl[i] && AscFormat.checkTxBodyDefFonts(allFonts, this.dLbl[i].txPr);
             this.dLbl[i].tx && this.dLbl[i].tx.rich && this.dLbl[i].tx.rich.content && this.dLbl[i].tx.rich.content.Document_Get_AllFontNames(allFonts);
+        }
+    };
+    CDLbls.prototype.applyLabelsFunction = function(fCallback, value, oDD)
+    {
+        fCallback(this, value, oDD, 10);
+        for(var i = 0; i < this.dLbl.length; ++i)
+        {
+            this.dLbl[i] && fCallback(this.dLbl[i], value, oDD, 10);
         }
     };
     CDLbls.prototype.getObjectType = function()
@@ -9800,10 +9990,6 @@ CDoughnutChart.prototype.Refresh_RecalcData = function(data) {
         {
             break;
         }
-        case AscDFH.historyitem_CommonChart_RemoveSeries:
-        {
-            break;
-        }
         case AscDFH.historyitem_DoughnutChart_SetDLbls :
         {
             if(this.parent && this.parent.parent && this.parent.parent.parent)
@@ -9824,6 +10010,7 @@ CDoughnutChart.prototype.Refresh_RecalcData = function(data) {
         case AscDFH.historyitem_CommonChart_AddSeries:
         case AscDFH.historyitem_CommonChart_AddFilteredSeries:
         case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+        case AscDFH.historyitem_CommonChart_RemoveSeries:
         {
             if(this.parent && this.parent.parent && this.parent.parent.parent)
             {
@@ -10646,10 +10833,6 @@ CLineChart.prototype = Object.create(CChartBase.prototype);
             {
                 break;
             }
-            case AscDFH.historyitem_CommonChart_RemoveSeries:
-            {
-                break;
-            }
             case AscDFH.historyitem_LineChart_AddAxId:
             case AscDFH.historyitem_CommonChart_AddAxId:
             {
@@ -10692,6 +10875,7 @@ CLineChart.prototype = Object.create(CChartBase.prototype);
             case AscDFH.historyitem_CommonChart_AddSeries:
             case AscDFH.historyitem_CommonChart_AddFilteredSeries:
             case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+            case AscDFH.historyitem_CommonChart_RemoveSeries:
             {
                 if(this.parent && this.parent.parent && this.parent.parent.parent)
                 {
@@ -11367,43 +11551,107 @@ CMultiLvlStrCache.prototype =
         this.Id = r.GetString2();
     },
 
-    update: function(sFormula) {
+    update: function(sFormula, oSeries) {
         if(!(typeof sFormula === "string" && sFormula.length > 0)) {
             return;
         }
+        var nPtCount = 0;
         var aParsedRef = AscFormat.fParseChartFormula(sFormula);
         if(aParsedRef.length > 0) {
-            var nPtCount = 0, nRows = 0, nRef, oRef, oBBox, nPtIdx, nCol, oWS, oCell, sVal;
-            for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
-                oRef = aParsedRef[nRef];
-                oBBox = oRef.bbox;
-                nPtCount += (oBBox.c2 - oBBox.c1 + 1);
-                nRows = Math.max(nRows, oBBox.r2 - oBBox.r1 + 1);
-            }
+            var nRows = 0, nRef, oRef, oBBox, nPtIdx, nCol, oWS, oCell, sVal, nCols = 0, nRow;
             var nLvl, oLvl;
-            for(nLvl = 0; nLvl < nRows; ++nLvl) {
-                oLvl = new CStrCache();
-                nPtIdx = 0;
-                for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
-                    oRef = aParsedRef[nRef];
-                    oBBox = oRef.bbox;
-                    oWS = oRef.worksheet;
-                    if(nLvl < (oBBox.r2 - oBBox.r1 + 1)) {
-                        for(nCol = oBBox.c1; nCol <= oBBox.c2; ++nCol) {
-                            oCell = oWS.getCell3(nLvl + oBBox.r1, nCol);
-                            sVal = oCell.getValueWithFormat();
-                            if(typeof sVal === "string" && sVal.length > 0) {
-                                oLvl.addStringPoint(nPtIdx, sVal);
-                            }
-                            ++nPtIdx;
-                        }
+            var bLvlsByRows = true;
+            if(oSeries) {
+                var sSeriesFormula = oSeries.getValRefFormula();
+
+                if(sSeriesFormula) {
+                    if(sSeriesFormula.charAt(0) === '=') {
+                        sSeriesFormula = sSeriesFormula.slice(1);
                     }
-                    else {
-                        nPtIdx += (oBBox.c2 - oBBox.c1 + 1);
+                    var aParsedSeriesRef = AscFormat.fParseChartFormula(sSeriesFormula);
+                    if(aParsedSeriesRef.length === aParsedRef.length) {
+                        var oSeriesRef;
+                        for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
+                            oRef = aParsedRef[nRef];
+                            oSeriesRef = aParsedSeriesRef[nRef];
+                            if(oSeriesRef.r1 !== oRef.r1 || oSeriesRef.r2 !== oRef.r2) {
+                                break;
+                            }
+                        }
+                        if(nRef === aParsedRef.length) {
+                            bLvlsByRows = false;
+                        }
                     }
                 }
             }
+            if(bLvlsByRows) {
+                for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
+                    oRef = aParsedRef[nRef];
+                    oBBox = oRef.bbox;
+                    nPtCount += (oBBox.c2 - oBBox.c1 + 1);
+                    nRows = Math.max(nRows, oBBox.r2 - oBBox.r1 + 1);
+                }
+                for(nLvl = 0; nLvl < nRows; ++nLvl) {
+                    oLvl = new CStrCache();
+                    nPtIdx = 0;
+                    for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
+                        oRef = aParsedRef[nRef];
+                        oBBox = oRef.bbox;
+                        oWS = oRef.worksheet;
+                        if(nLvl < (oBBox.r2 - oBBox.r1 + 1)) {
+                            for(nCol = oBBox.c1; nCol <= oBBox.c2; ++nCol) {
+                                oCell = oWS.getCell3(nLvl + oBBox.r1, nCol);
+                                sVal = oCell.getValueWithFormat();
+                                if(typeof sVal === "string" && sVal.length > 0) {
+                                    oLvl.addStringPoint(nPtIdx, sVal);
+                                }
+                                ++nPtIdx;
+                            }
+                        }
+                        else {
+                            nPtIdx += (oBBox.c2 - oBBox.c1 + 1);
+                        }
+                    }
+                    nPtCount = Math.max(nPtCount, nPtIdx);
+                    oLvl.setPtCount(nPtIdx);
+                    this.addLvl(oLvl);
+                }
+            }
+            else {
+                for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
+                    oRef = aParsedRef[nRef];
+                    oBBox = oRef.bbox;
+                    nPtCount += (oBBox.r2 - oBBox.r1 + 1);
+                    nCols = Math.max(nCols, oBBox.c2 - oBBox.c1 + 1);
+                }
+                for(nLvl = 0; nLvl < nCols; ++nLvl) {
+                    oLvl = new CStrCache();
+                    nPtIdx = 0;
+                    for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
+                        oRef = aParsedRef[nRef];
+                        oBBox = oRef.bbox;
+                        oWS = oRef.worksheet;
+                        if(nLvl < (oBBox.c2 - oBBox.c1 + 1)) {
+                            for(nRow = oBBox.r1; nRow <= oBBox.r2; ++nRow) {
+                                oCell = oWS.getCell3(nRow, nLvl + oBBox.c1);
+                                sVal = oCell.getValueWithFormat();
+                                if(typeof sVal === "string" && sVal.length > 0) {
+                                    oLvl.addStringPoint(nPtIdx, sVal);
+                                }
+                                ++nPtIdx;
+                            }
+                        }
+                        else {
+                            nPtIdx += (oBBox.r2 - oBBox.r1 + 1);
+                        }
+                    }
+                    nPtCount = Math.max(nPtCount, nPtIdx);
+                    oLvl.setPtCount(nPtIdx);
+                    this.addLvl(oLvl);
+                }
+            }
         }
+        this.setPtCount(nPtCount);
     },
 
     getValues: function (nMaxValues) {
@@ -11476,9 +11724,9 @@ CMultiLvlStrRef.prototype =
         History.Add(new CChangesDrawingsObject(this, AscDFH.historyitem_MultiLvlStrRef_SetMultiLvlStrCache, this.multiLvlStrCache, pr));
         this.multiLvlStrCache = pr;
     },
-    updateCache: function () {
+    updateCache: function (oSeries) {
         this.setMultiLvlStrCache(new CMultiLvlStrCache());
-        this.multiLvlStrCache.update(this.f);
+        this.multiLvlStrCache.update(this.f, oSeries);
     },
     getValues: function (nMaxValues) {
         if(!this.multiLvlStrCache) {
@@ -11491,6 +11739,13 @@ CMultiLvlStrRef.prototype =
     },
     getParsedRefs: function() {
         return AscFormat.fParseChartFormula(this.f);
+    },
+    getFirstLvlCache: function() {
+        var oCache = this.multiLvlStrCache;
+        if(oCache && oCache.lvl[0]) {
+            return oCache.lvl[0];
+        }
+        return null;
     }
 };
 
@@ -11890,6 +12145,7 @@ CNumLit.prototype =
             var oHM, nHidden, nR, nC, oMinBB, oCell, aSpanPoints = [], oStartPoint;
             var dVal, sVal, oPt, sCellFC, nSpan, nLastNoEmptyIndex, nSpliceIndex;
             var sFC = typeof this.formatCode === "string" && this.formatCode.length > 0 ? this.formatCode : "General";
+            var bHaveTotalRow;
             nPtCount = 0;
             nPtIdx = 0;
             for(nRef = 0; nRef < aParsedRef.length; ++nRef) {
@@ -11909,7 +12165,8 @@ CNumLit.prototype =
                 else {
                     nHidden = oHM.getHiddenRowsCount(oBB.r1, oBB.r2 + 1)*oBB.getWidth() + oHM.getHiddenColsCount(oBB.c1, oBB.c2 + 1)*oBB.getHeight();
                 }
-                if(oWS.isTableTotalRow(new Asc.Range(oBB.c1, oBB.r2, oBB.c1, oBB.r2))) {
+                bHaveTotalRow = oWS.isTableTotalRow(new Asc.Range(oBB.c1, oBB.r2, oBB.c1, oBB.r2)) && oBB.r1 !== oBB.r2;
+                if(bHaveTotalRow) {
                     nHidden += 1;
                 }
                 nCount = Math.max(0, oBB.getHeight()*oBB.getWidth() - nHidden);
@@ -11924,7 +12181,7 @@ CNumLit.prototype =
                     if(!displayHidden && oWS.getRowHidden(nR)) {
                         continue;
                     }
-                    if(nR === oBB.r2 && oWS.isTableTotalRow(new Asc.Range(oBB.c1, oBB.r2, oBB.c1, oBB.r2))) {
+                    if(nR === oBB.r2 && bHaveTotalRow) {
                         continue;
                     }
                     for(nC = oMinBB.c1; nC <= oMinBB.c2; ++nC) {
@@ -12012,7 +12269,15 @@ CNumLit.prototype =
         for(var nIndex = 0; nIndex < nEnd; ++nIndex) {
             var oPt = this.getPtByIndex(nIndex);
             if(oPt) {
-                ret.push(oPt.val + "");
+                var sFormatCode = oPt.formatCode || this.formatCode;
+                if(sFormatCode) {
+                    var oNumFmt = AscCommon.oNumFormatCache.get(sFormatCode);
+                    ret.push(oNumFmt.formatToChart(oPt.val));
+                }
+                else {
+                    ret.push(oPt.val + "");
+                }
+
             }
             else {
                 ret.push("");
@@ -12249,10 +12514,6 @@ function CPieChart()
             {
                 break;
             }
-            case AscDFH.historyitem_CommonChart_RemoveSeries:
-            {
-                break;
-            }
             case AscDFH.historyitem_PieChart_SetDLbls:
             case AscDFH.historyitem_CommonChart_SetDlbls:
             {
@@ -12270,6 +12531,7 @@ function CPieChart()
             case AscDFH.historyitem_CommonChart_AddSeries:
             case AscDFH.historyitem_CommonChart_AddFilteredSeries:
             case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+            case AscDFH.historyitem_CommonChart_RemoveSeries:
             {
                 if(this.parent && this.parent.parent && this.parent.parent.parent)
                 {
@@ -12439,7 +12701,7 @@ function CPieSeries()
             this.setExplosion(o.explosion);
         if(AscFormat.isRealNumber(o.idx))
             this.setIdx(o.idx);
-        if(o.order)
+        if(AscFormat.isRealNumber(o.order))
             this.setOrder(o.order);
         if(o.spPr){
             this.setSpPr(o.spPr);
@@ -12624,10 +12886,6 @@ CRadarChart.prototype = Object.create(CChartBase.prototype);
             {
                 break;
             }
-            case AscDFH.historyitem_CommonChart_RemoveSeries:
-            {
-                break;
-            }
             case AscDFH.historyitem_RadarChart_AddAxId:
             case AscDFH.historyitem_CommonChart_AddAxId:
             {
@@ -12650,6 +12908,7 @@ CRadarChart.prototype = Object.create(CChartBase.prototype);
             case AscDFH.historyitem_CommonChart_AddSeries:
             case AscDFH.historyitem_CommonChart_AddFilteredSeries:
             case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+            case AscDFH.historyitem_CommonChart_RemoveSeries:
             {
                 if(this.parent && this.parent.parent && this.parent.parent.parent)
                 {
@@ -12779,7 +13038,7 @@ function CRadarSeries()
             this.setMarker(o.marker);
         if(AscFormat.isRealNumber(o.idx))
             this.setIdx(o.idx);
-        if(o.order)
+        if(AscFormat.isRealNumber(o.order))
             this.setOrder(o.order);
         if(o.spPr)
             this.setSpPr(o.spPr);
@@ -12997,7 +13256,7 @@ CScatterChart.prototype = Object.create(CChartBase.prototype);
 
 function CScatterSeries()
 {
-    CSeriesBase.call(this)
+    CSeriesBase.call(this);
     this.dLbls     = null;
     this.dPt       = [];
     this.errBars   = null;
@@ -13209,13 +13468,13 @@ CTx.prototype =
         this.val = pr;
             },
 
-    getText: function() {
+    getText: function(bNoUpdate) {
         var sRet = "";
         if(typeof this.val === "string" && this.val.length > 0) {
             sRet = this.val;
         }
         else if(this.strRef) {
-            sRet = this.strRef.getText();
+            sRet = this.strRef.getText(bNoUpdate);
         }
         return sRet;
     },
@@ -13281,6 +13540,19 @@ CTx.prototype =
             oResult.setError(Asc.c_oAscError.ID.DataRangeError);
         }
         return oResult;
+    },
+
+    isValid: function() {
+        if(this.strRef || (typeof this.val === "string")) {
+            return true;
+        }
+        return false;
+    },
+
+    update: function () {
+        if(this.strRef) {
+            this.strRef.updateCache();
+        }
     }
 };
 
@@ -13634,7 +13906,7 @@ CStrCache.prototype =
     getFormula: function() {
         var sRet = "={";
         for(var nIndex = 0; nIndex < this.pts.length; ++nIndex) {
-            sRet += this.pts[nIndex].val;
+            sRet += ("\"" + this.pts[nIndex].val + "\"");
             if(nIndex < this.pts.length -1) {
                 sRet += ", ";
             }
@@ -13773,9 +14045,11 @@ CStrRef.prototype =
         this.strCache.removeAllPts();
         this.strCache.update(this.f);
     },
-    getText: function() {
+    getText: function(bNoUpdate) {
         if(!this.strCache) {
-            this.updateCache();
+            if(bNoUpdate !== true) {
+                this.updateCache();
+            }
         }
         var aValues = this.strCache.getValues(null);
         var sRet = "";
@@ -13824,10 +14098,6 @@ CSurfaceChart.prototype = Object.create(CChartBase.prototype);
             {
                 break;
             }
-            case AscDFH.historyitem_CommonChart_RemoveSeries:
-            {
-                break;
-            }
             case AscDFH.historyitem_SurfaceChart_AddAxId:
             case AscDFH.historyitem_CommonChart_AddAxId:
             {
@@ -13841,6 +14111,7 @@ CSurfaceChart.prototype = Object.create(CChartBase.prototype);
             case AscDFH.historyitem_CommonChart_AddSeries:
             case AscDFH.historyitem_CommonChart_AddFilteredSeries:
             case AscDFH.historyitem_CommonChart_RemoveFilteredSeries:
+            case AscDFH.historyitem_CommonChart_RemoveSeries:
             {
                 if(this.parent && this.parent.parent && this.parent.parent.parent)
                 {
@@ -14011,7 +14282,7 @@ CSurfaceSeries.prototype = Object.create(CSeriesBase.prototype);
             this.setCat(o.cat);
         if(AscFormat.isRealNumber(o.idx))
             this.setIdx(o.idx);
-        if(o.order)
+        if(AscFormat.isRealNumber(o.order))
             this.setOrder(o.order);
         if(o.spPr)
             this.setSpPr(o.spPr);
@@ -14525,11 +14796,11 @@ CTitle.prototype =
 
     getDefaultTextForTxBody: function()
     {
-        var oStrCache = AscFormat.getStringPointsFromCat(this.tx);
-        if(oStrCache){
-            var oPoint = oStrCache.getPtByIndex(0);
-            if(oPoint && oPoint.val){
-                return oPoint.val;
+        var sText;
+        if(this.tx && this.tx.strRef) {
+            sText = this.tx.strRef.getText(true);
+            if(typeof sText === "string" && sText.length > 0) {
+                return sText;
             }
         }
         var key = 'Axis Title';
@@ -14541,14 +14812,9 @@ CTitle.prototype =
                     && this.parent.plotArea.charts[0].series.length === 1 && this.parent.plotArea.charts[0].series[0].tx)
                 {
                     var oTx = this.parent.plotArea.charts[0].series[0].tx;
-                    if(typeof oTx.val === "string" && oTx.val.length > 0)
-                    {
-                        return oTx.val;
-                    }
-                    if(oTx.strRef && oTx.strRef.strCache && oTx.strRef.strCache.pts.length === 1 && isRealObject(oTx.strRef.strCache.pts[0]) && typeof oTx.strRef.strCache.pts[0].val === "string"
-                        && oTx.strRef.strCache.pts[0].val.length > 0)
-                    {
-                        return oTx.strRef.strCache.pts[0].val;
+                    sText = oTx.getText(true);
+                    if(typeof sText === "string" && sText.length > 0) {
+                        return sText;
                     }
                 }
 				key = 'Diagram Title';
@@ -15097,11 +15363,28 @@ CYVal.prototype =
             return this.numRef.getFormula();
         }
     },
+    getRefFormula: function() {
+        if(this.numRef) {
+            return this.numRef.getFormula();
+        }
+        return null;
+    },
     getParsedRefs: function() {
         if(this.numRef) {
             return this.numRef.getParsedRefs();
         }
         return [];
+    },
+    isValid: function() {
+        if(this.numRef || this.numLit) {
+            return true;
+        }
+        return false;
+    },
+    update: function(displayEmptyCellsAs, displayHidden, ser) {
+        if(this.numRef) {
+            this.numRef.updateCache(displayEmptyCellsAs, displayHidden, ser);
+        }
     }
 };
 
@@ -15379,6 +15662,11 @@ function CChart()
     CChart.prototype.reindexSeries = function() {
         if(this.parent) {
             this.parent.reindexSeries();
+        }
+    };
+    CChart.prototype.reorderSeries = function() {
+        if(this.parent) {
+            this.parent.reorderSeries();
         }
     };
     CChart.prototype.moveSeriesUp = function(oSeries) {

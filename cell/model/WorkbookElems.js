@@ -7710,6 +7710,9 @@ function RangeDataManagerElem(bbox, data)
 
 		return false;
 	};
+	FilterColumn.prototype.isColorFilter = function () {
+		return this.ColorFilter !== null;
+	};
 	FilterColumn.prototype.readAttributes = function(attr, uq) {
 		if (attr()) {
 			var vals = attr();
@@ -8344,6 +8347,15 @@ CustomFilters.prototype.toXml = function(writer, name) {
 	}
 	writer.WriteXmlNodeEnd(name);
 };
+CustomFilters.prototype.changeForInterface = function () {
+	var res = this.clone();
+	if(res.CustomFilters) {
+		for(var i = 0; i < res.CustomFilters.length; i++) {
+			res.CustomFilters[i].changeForInterface();
+		}
+	}
+	return res;
+};
 
 var g_oCustomFilter = {
 	Operator	 : 0,
@@ -8576,6 +8588,26 @@ CustomFilter.prototype.check = function () {
 			this.Val = " ";
 		}
 	}
+
+	if (c_oAscCustomAutoFilter.beginsWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.doesNotBeginWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.endsWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = "*" + this.Val;
+	} else if (c_oAscCustomAutoFilter.doesNotEndWith === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = "*" + this.Val;
+	} else if (c_oAscCustomAutoFilter.contains === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.equals;
+		this.Val = "*" + this.Val + "*";
+	} else if (c_oAscCustomAutoFilter.doesNotContain === this.Operator) {
+		this.Operator = c_oAscCustomAutoFilter.doesNotEqual;
+		this.Val = "*" + this.Val + "*";
+	}
 };
 
 CustomFilter.prototype._generateEmptyValueFilter = function () {
@@ -8619,7 +8651,7 @@ CustomFilter.prototype.Write_ToBinary2 = function(writer) {
 
 	if (null != this.Val) {
 		writer.WriteBool(true);
-		writer.WriteLong(this.Val);
+		writer.WriteString2(this.Val);
 	} else {
 		writer.WriteBool(false);
 	}
@@ -8629,7 +8661,41 @@ CustomFilter.prototype.Read_FromBinary2 = function(reader) {
 		this.Operator = reader.GetLong();
 	}
 	if (reader.GetBool()) {
-		this.Val = reader.GetLong();
+		this.Val = reader.GetString2();
+	}
+};
+CustomFilter.prototype.changeForInterface = function() {
+	if (!this.Val || this.Val.length <= 1) {
+		return;
+	}
+
+	var isStartSpecSymbol = this.Val && this.Val.length > 1 && this.Val[0] === "*";
+	var isEndSpecSymbol;
+	if (!isStartSpecSymbol || (isStartSpecSymbol && this.Val.length >= 2)) {
+		isEndSpecSymbol = this.Val && this.Val[this.Val.length - 1] === "*";
+	}
+	if (isStartSpecSymbol && isEndSpecSymbol && this.Val.length <= 2) {
+		return;
+	}
+	if (isStartSpecSymbol || isEndSpecSymbol) {
+		this.Val = this.Val.substring(isStartSpecSymbol ? 1 : 0, isEndSpecSymbol ? this.Val.length - 1 : this.Val.length);
+		if(c_oAscCustomAutoFilter.doesNotEqual === this.Operator) {
+			if (isStartSpecSymbol && isEndSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.doesNotContain;
+			} else if (isStartSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.doesNotEndWith;
+			} else {
+				this.Operator = c_oAscCustomAutoFilter.doesNotBeginWith;
+			}
+		} else {
+			if (isStartSpecSymbol && isEndSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.contains;
+			} else if (isStartSpecSymbol) {
+				this.Operator = c_oAscCustomAutoFilter.endsWith;
+			} else {
+				this.Operator = c_oAscCustomAutoFilter.beginsWith;
+			}
+		}
 	}
 };
 
@@ -8990,7 +9056,7 @@ ColorFilter.prototype.toXml = function(writer, name) {
 ColorFilter.prototype.Write_ToBinary2 = function(writer) {
 	if (null !== this.CellColor) {
 		writer.WriteBool(true);
-		writer.WriteLong(this.CellColor);
+		writer.WriteBool(this.CellColor);
 	} else {
 		writer.WriteBool(false);
 	}
@@ -9006,13 +9072,13 @@ ColorFilter.prototype.Write_ToBinary2 = function(writer) {
 };
 ColorFilter.prototype.Read_FromBinary2 = function(reader) {
 	if (reader.GetBool()) {
-		this.CellColor = reader.GetLong();
+		this.CellColor = reader.GetBool();
 	}
 	if (reader.GetBool()) {
 		var api_sheet = Asc['editor'];
 		var wb = api_sheet.wbModel;
 		var bsr = new AscCommonExcel.Binary_StylesTableReader(reader, wb);
-		var bcr = new AscCommon.Binary_CommonReader(r);
+		var bcr = new AscCommon.Binary_CommonReader(reader);
 		var oDxf = new AscCommonExcel.CellXfs();
 		reader.GetUChar();
 		var length = reader.GetULongLE();

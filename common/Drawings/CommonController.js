@@ -103,7 +103,6 @@ var DISTANCE_TO_TEXT_LEFTRIGHT = 3.2;
     CURSOR_TYPES_BY_CARD_DIRECTION[CARD_DIRECTION_W]  = "w-resize";
     CURSOR_TYPES_BY_CARD_DIRECTION[CARD_DIRECTION_NW] = "nw-resize";
 
-    var MAX_CHART_RANGE_SIZE = 4096;
     function fillImage(image, rasterImageId, x, y, extX, extY, sVideoUrl, sAudioUrl)
     {
         image.setSpPr(new AscFormat.CSpPr());
@@ -2583,9 +2582,14 @@ DrawingObjectsController.prototype =
                 }
                 else if(arr[i].getObjectType() === AscDFH.historyitem_type_ChartSpace)
                 {
-                    if(f === CDocumentContent.prototype.AddToParagraph && args[0].Type === para_TextPr)
+                    if(args[0].Type === para_TextPr)
                     {
-                        AscFormat.CheckObjectTextPr(arr[i], args[0].Value, oThis.getDrawingDocument());
+                        var oChartSpace = arr[i];
+
+                        var fCallback = function(oElement) {
+                            AscFormat.CheckObjectTextPr(oElement, args[0].Value, oThis.getDrawingDocument());
+                        };
+                        oChartSpace.applyLabelsFunction(fCallback, args[0].Value);
                     }
                     if(f === CDocumentContent.prototype.IncreaseDecreaseFontSize)
                     {
@@ -4378,7 +4382,7 @@ DrawingObjectsController.prototype =
                                         bEqualVert =  oProps.getInColumns() === !oSeriesBBox.bVert;
                                     }
                                 }
-                                bLimit = (oBBox.getHeight() > MAX_CHART_RANGE_SIZE || oBBox.getWidth() > MAX_CHART_RANGE_SIZE);
+                                bLimit = (oBBox.getHeight() > AscFormat.MAX_POINTS_COUNT || oBBox.getWidth() > AscFormat.MAX_POINTS_COUNT);
                                 if(!bLimit && (!bEqualWS || !bEqualBBox || !bEqualVert)) {
                                     if(oChartBBox && bEqualBBox && bEqualWS && !bEqualVert) {
                                         oCatBBox = oChartBBox.catBBox;
@@ -8910,19 +8914,6 @@ DrawingObjectsController.prototype =
     {
         if(typeof Asc.asc_CParagraphProperty !== "undefined" && !(props instanceof Asc.asc_CParagraphProperty))
         {
-            if(props && props.ChartProperties && typeof props.ChartProperties.getRange() === "string")
-            {
-                var editor = window["Asc"]["editor"];
-                var check = parserHelp.checkDataRange(editor.wbModel, editor.wb, Asc.c_oAscSelectionDialogType.Chart, props.ChartProperties.getRange(), true, !props.ChartProperties.getInColumns(), props.ChartProperties.getType());
-                if(check === c_oAscError.ID.StockChartError || check === c_oAscError.ID.DataRangeError
-                    || check === c_oAscError.ID.MaxDataSeriesError)
-                {
-                    editor.wbModel.handlers.trigger("asc_onError", check, c_oAscError.Level.NoCritical);
-                    this.drawingObjects.sendGraphicObjectProps();
-                    return;
-                }
-            }
-
             var aAdditionalObjects = null;
             if(AscFormat.isRealNumber(props.Width) && AscFormat.isRealNumber(props.Height)){
                 aAdditionalObjects = this.getConnectorsForCheck2();
@@ -10640,8 +10631,8 @@ function CollectSettingsUniFill(oUniFill)
         }
         case oFillTypes.FILL_TYPE_PATT:{
             ret.push(oFill.ftype);
-            ret.push(CollectUniColor(oFill.fgClr));
-            ret.push(CollectUniColor(oFill.bgClr));
+            ret.push(CollectUniColor(oFill.fgClr || AscFormat.CreateUniColorRGB(0, 0, 0)));
+            ret.push(CollectUniColor(oFill.bgClr || AscFormat.CreateUniColorRGB(255, 255, 255)));
             break;
         }
         case oFillTypes.FILL_TYPE_GRP:{
@@ -12272,6 +12263,6 @@ function ApplyPresetToChartSpace(oChartSpace, aPreset, bCreate){
 	window['AscFormat'].getAbsoluteRectBoundsArr = getAbsoluteRectBoundsArr;
 	window['AscFormat'].fCheckObjectHyperlink = fCheckObjectHyperlink;
 	window['AscFormat'].getNumberingType = getNumberingType;
+	window['AscFormat'].CreateUnifillFromPreset = CreateUnifillFromPreset;
 	window['AscFormat'].fGetDefaultShapeExtents = fGetDefaultShapeExtents;
-	window['AscFormat'].MAX_CHART_RANGE_SIZE = MAX_CHART_RANGE_SIZE;
 })(window);

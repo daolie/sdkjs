@@ -207,7 +207,8 @@
 		SuccessLimit  : 7,
 		UsersCount    : 8,
 		ConnectionsOS : 9,
-		UsersCountOS  : 10
+		UsersCountOS  : 10,
+		ExpiredLimited: 11
 	};
 
 	var c_oRights = {
@@ -221,7 +222,8 @@
 	var c_oLicenseMode = {
 		None: 0,
 		Trial: 1,
-		Developer: 2
+		Developer: 2,
+		Limited: 4
 	};
 
 	var EPluginDataType = {
@@ -1505,6 +1507,12 @@
 		if(this.chartSpace) {
 			return this.chartSpace.getCommonRange();
 		}
+		if(this.aRanges.length > 0 && typeof this.aRanges[0] === "string" ) {
+			var sRange = this.aRanges[0];
+			if(sRange.length > 0) {
+				return sRange;
+			}
+		}
 		return null;
 	};
 	asc_ChartSettings.prototype.putInColumns = function(inColumns) {
@@ -1605,15 +1613,17 @@
 		}, this, []);
 	};
 	asc_ChartSettings.prototype.switchRowCol = function() {
+		var nError = Asc.c_oAscError.ID.No;
 		if(this.chartSpace) {
-			this.chartSpace.switchRowCol();
+			nError = this.chartSpace.switchRowCol();
 		}
 		this.updateChart();
+		return nError;
 	};
 	asc_ChartSettings.prototype.addSeries = function() {
 		var oRet = null;
 		if(this.chartSpace) {
-			oRet = this.chartSpace.addSeries(null, "={1}");
+			oRet = this.chartSpace.addNewSeries();
 		}
 		this.updateChart();
 		return oRet;
@@ -1621,7 +1631,7 @@
 	asc_ChartSettings.prototype.addScatterSeries = function() {
 		var oRet = null;
 		if(this.chartSpace) {
-			oRet = this.chartSpace.addScatterSeries(null, null, "={1}");
+			oRet = this.chartSpace.addNewSeries();
 		}
 		this.updateChart();
 		return oRet;
@@ -1637,6 +1647,8 @@
 	asc_ChartSettings.prototype.cancelEdit = function() {
 		AscCommon.History.EndTransaction();
 		AscCommon.History.Undo();
+		AscCommon.History.Clear_Redo();
+		AscCommon.History._sendCanUndoRedo();
 		this.updateChart();
 	};
 	asc_ChartSettings.prototype.startEditData = function() {
@@ -5348,6 +5360,7 @@
 	prot['UsersCount'] = prot.UsersCount;
 	prot['ConnectionsOS'] = prot.ConnectionsOS;
 	prot['UsersCountOS'] = prot.UsersCountOS;
+	prot['ExpiredLimited'] = prot.ExpiredLimited;
 
 	window['Asc']['c_oRights'] = window['Asc'].c_oRights = c_oRights;
 	prot = c_oRights;
@@ -5362,6 +5375,7 @@
 	prot['None'] = prot.None;
 	prot['Trial'] = prot.Trial;
 	prot['Developer'] = prot.Developer;
+	prot['Limited'] = prot.Limited;
 
 	window["Asc"]["EPluginDataType"] = window["Asc"].EPluginDataType = EPluginDataType;
 	prot         = EPluginDataType;

@@ -211,7 +211,7 @@ function (window, undefined) {
 	window['AscCH'].historyitem_PivotTable_PageFilter = 50;
 	window['AscCH'].historyitem_PivotTable_SetGridDropZones = 51;
 	window['AscCH'].historyitem_PivotTable_WorksheetSource = 52;
-	window['AscCH'].historyitem_PivotTable_PivotCacheId = 51;
+	window['AscCH'].historyitem_PivotTable_PivotCacheId = 53;
 
 	window['AscCH'].historyitem_SharedFormula_ChangeFormula = 1;
 	window['AscCH'].historyitem_SharedFormula_ChangeShared = 2;
@@ -1133,7 +1133,7 @@ CHistory.prototype.GetSerializeArray = function()
 		{
 			if(this.PosInCurPoint !== null)
 			{
-				for ( var Index = oPoint.Items.length - 1; Index > this.PosInCurPoint; Index-- )
+				for ( var Index = oPoint.Items.length - 1; Index >= this.PosInCurPoint; Index-- )
 				{
 					var Item = oPoint.Items[Index];
 					if(!Item.Class.RefreshRecalcData)
@@ -1147,6 +1147,7 @@ CHistory.prototype.GetSerializeArray = function()
 						}
 					}
 				}
+				oPoint.Items.splice(this.PosInCurPoint);
 			}
 		}
 		this.PosInCurPoint = null; 

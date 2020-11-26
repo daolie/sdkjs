@@ -2427,32 +2427,7 @@ CTable.prototype.Get_PageContentStartPos = function(CurPage, RowIndex, CellIndex
 
 	// Далее вычислим маскимальную ширину верхней границы всех ячеек в данной
 	// строке, учитывая ячейки, учавствующие в вертикальном объединении.
-
-	var MaxTopBorder = 0;
-	var CellsCount   = Row.Get_CellsCount();
-	var TableBorders = this.Get_Borders();
-	for (var CurCell = 0; CurCell < CellsCount; CurCell++)
-	{
-		var Cell   = Row.Get_Cell(CurCell);
-		var VMerge = Cell.GetVMerge();
-
-		if (vmerge_Continue === VMerge)
-			Cell = this.Internal_Get_StartMergedCell(RowIndex, Row.Get_CellInfo(CurCell).StartGridCol, Cell.Get_GridSpan());
-
-		var BorderInfo_Top = Cell.Get_BorderInfo().Top;
-		if (null === BorderInfo_Top)
-			continue;
-
-		for (var Index = 0; Index < BorderInfo_Top.length; Index++)
-		{
-			var CurBorder = BorderInfo_Top[Index];
-
-			var ResultBorder = this.Internal_CompareBorders(CurBorder, TableBorders.Top, false, true);
-
-			if (border_Single === ResultBorder.Value && MaxTopBorder < ResultBorder.Size)
-				MaxTopBorder = ResultBorder.Size;
-		}
-	}
+	var MaxTopBorder = this.private_GetMaxTopBorderWidth(RowIndex, bHeader);
 
 	Pos.X = this.Pages[CurPage].X;
 
@@ -2491,7 +2466,7 @@ CTable.prototype.Get_MaxTopBorder = function(RowIndex)
 		if (vmerge_Continue === VMerge)
 			Cell = this.Internal_Get_StartMergedCell(RowIndex, Row.Get_CellInfo(CurCell).StartGridCol, Cell.Get_GridSpan());
 
-		var BorderInfo_Top = Cell.Get_BorderInfo().Top;
+		var BorderInfo_Top = Cell.GetBorderInfo().Top;
 		if (null === BorderInfo_Top)
 			continue;
 
@@ -2499,7 +2474,7 @@ CTable.prototype.Get_MaxTopBorder = function(RowIndex)
 		{
 			var CurBorder = BorderInfo_Top[Index];
 
-			var ResultBorder = this.Internal_CompareBorders(CurBorder, TableBorders.Top, false, true);
+			var ResultBorder = this.private_ResolveBordersConflict(CurBorder, TableBorders.Top, false, true);
 
 			if (border_Single === ResultBorder.Value && MaxTopBorder < ResultBorder.Size)
 				MaxTopBorder = ResultBorder.Size;
@@ -2544,7 +2519,7 @@ CTable.prototype.GetTableOffsetCorrection = function()
 	{
 		var TableBorder_Left = this.Get_Borders().Left;
 		var CellBorder_Left  = Cell.Get_Borders().Left;
-		var Result_Border    = this.Internal_CompareBorders(TableBorder_Left, CellBorder_Left, true, false);
+		var Result_Border    = this.private_ResolveBordersConflict(TableBorder_Left, CellBorder_Left, true, false);
 
 		if (border_None != Result_Border.Value)
 			X += Math.max(Result_Border.Size / 2, Margins.Left.W);
@@ -2586,7 +2561,7 @@ CTable.prototype.GetRightTableOffsetCorrection = function()
 	{
 		var TableBorder_Right = this.Get_Borders().Right;
 		var CellBorder_Right  = Cell.Get_Borders().Right;
-		var Result_Border     = this.Internal_CompareBorders(TableBorder_Right, CellBorder_Right, true, false);
+		var Result_Border     = this.private_ResolveBordersConflict(TableBorder_Right, CellBorder_Right, true, false);
 
 		if (border_None != Result_Border.Value)
 			X += Math.max(Result_Border.Size / 2, Margins.Right.W);
@@ -3034,10 +3009,10 @@ CTable.prototype.Reset_RecalculateCache = function()
 		}
 	}
 };
-CTable.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY)
+CTable.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY, isUpdateTarget)
 {
 	if (this.CurCell)
-		return this.CurCell.Content_RecalculateCurPos(bUpdateX, bUpdateY);
+		return this.CurCell.Content_RecalculateCurPos(bUpdateX, bUpdateY, isUpdateTarget);
 
 	return null;
 };
@@ -3393,7 +3368,7 @@ CTable.prototype.FindNextFillingForm = function(isNext, isCurrent, isStart)
 };
 CTable.prototype.Get_NearestPos = function(CurPage, X, Y, bAnchor, Drawing)
 {
-	var Pos  = this.Internal_GetCellByXY(X, Y, CurPage);
+	var Pos  = this.private_GetCellByXY(X, Y, CurPage);
 	var Cell = this.Content[Pos.Row].Get_Cell(Pos.Cell);
 
 	return Cell.Content_Get_NearestPos(CurPage - Cell.Content.Get_StartPage_Relative(), X, Y, bAnchor, Drawing);
@@ -3626,7 +3601,7 @@ CTable.prototype.UpdateCursorType = function(X, Y, CurPage)
 		}
 	}
 
-	var Cell_Pos = this.Internal_GetCellByXY(X, Y, CurPage);
+	var Cell_Pos = this.private_GetCellByXY(X, Y, CurPage);
 	var Cell     = this.Content[Cell_Pos.Row].Get_Cell(Cell_Pos.Cell);
 	Cell.Content_UpdateCursorType(X, Y, CurPage - Cell.Content.Get_StartPage_Relative());
 };
@@ -4783,25 +4758,19 @@ CTable.prototype.GetSelectionAnchorPos = function()
 //----------------------------------------------------------------------------------------------------------------------
 CTable.prototype.MoveCursorToXY = function(X, Y, bLine, bDontChangeRealPos, CurPage)
 {
-	var Pos  = this.Internal_GetCellByXY(X, Y, CurPage);
-	var Row  = this.Content[Pos.Row];
-	var Cell = Row.Get_Cell(Pos.Cell);
+	var oPos  = this.private_GetCellByXY(X, Y, CurPage);
+	var oRow  = this.GetRow(oPos.Row);
+	var oCell = oRow.GetCell(oPos.Cell);
 
 	this.Selection.Type         = table_Selection_Text;
 	this.Selection.Type2        = table_Selection_Common;
-	this.Selection.StartPos.Pos = {Row : Pos.Row, Cell : Pos.Cell};
-	this.Selection.EndPos.Pos   = {Row : Pos.Row, Cell : Pos.Cell};
-	this.Selection.CurRow       = Pos.Row;
+	this.Selection.StartPos.Pos = {Row : oPos.Row, Cell : oPos.Cell};
+	this.Selection.EndPos.Pos   = {Row : oPos.Row, Cell : oPos.Cell};
+	this.Selection.CurRow       = oPos.Row;
 
 	// Устанавливаем найденную ячейку текущей и перемещаемся в контент ячейки по координатам X,Y
-	this.CurCell = Cell;
-	this.DrawingDocument.TargetStart();
-	this.DrawingDocument.TargetShow();
+	this.CurCell = oCell;
 	this.CurCell.Content_MoveCursorToXY(X, Y, false, true, CurPage - this.CurCell.Content.Get_StartPage_Relative());
-	if (this.LogicDocument)
-	{
-		this.LogicDocument.RecalculateCurPos();
-	}
 };
 CTable.prototype.Selection_SetStart = function(X, Y, CurPage, MouseEvent)
 {
@@ -5556,7 +5525,7 @@ CTable.prototype.Selection_SetEnd = function(X, Y, CurPage, MouseEvent)
 		return;
 	}
 
-	var oTempPos = this.Internal_GetCellByXY(X, Y, CurPage);
+	var oTempPos = this.private_GetCellByXY(X, Y, CurPage);
 
 	var Pos = {
 		Row  : oTempPos.Row,
@@ -5787,7 +5756,7 @@ CTable.prototype.CheckPosInSelection = function(X, Y, CurPage, NearPos)
 		if (oHitInfo.CellSelection || oHitInfo.RowSelection || oHitInfo.ColumnSelection)
 			return false;
 
-		var CellPos = this.Internal_GetCellByXY(X, Y, CurPage);
+		var CellPos = this.private_GetCellByXY(X, Y, CurPage);
 		if (true === this.Selection.Use && table_Selection_Cell === this.Selection.Type)
 		{
 			for (var Index = 0; Index < this.Selection.Data.length; Index++)
@@ -11835,7 +11804,7 @@ CTable.prototype.GetDrawLine = function(X1, Y1, X2, Y2, CurPageStart, CurPageEnd
 		}
 		else
 		{
-			var Cell_pos = this.Internal_GetCellByXY(X1 + this.Pages[CurPageStart].X, Y1, CurPageStart);
+			var Cell_pos = this.private_GetCellByXY(X1 + this.Pages[CurPageStart].X, Y1, CurPageStart);
 
 			var Row              = this.GetRow(Cell_pos.Row);
 			var Cell         	 = Row.Get_Cell(Cell_pos.Cell);  //текущая ячейка
@@ -12118,7 +12087,7 @@ CTable.prototype.DrawCellInCell = function(X1, Y1, X2, Y2, CurPageStart)
 		X1 = cache;
 	}
 
-	var Cell_pos = this.Internal_GetCellByXY(X1 + this.Pages[CurPageStart].X, Y1, CurPageStart);
+	var Cell_pos = this.private_GetCellByXY(X1 + this.Pages[CurPageStart].X, Y1, CurPageStart);
 
 	var oRow  = this.GetRow(Cell_pos.Row);
 	var oCell = oRow.GetCell(Cell_pos.Cell);  //текущая ячейка
@@ -14060,7 +14029,7 @@ CTable.prototype.Internal_RecalculateFrom = function(RowIndex, CellIndex, bChang
 {
 	return editor.WordControl.m_oLogicDocument.Recalculate();
 };
-CTable.prototype.Internal_GetCellByXY = function(X, Y, PageIndex)
+CTable.prototype.private_GetCellByXY = function(X, Y, PageIndex)
 {
 	// Сначала определяем колонку в которую мы попали
 	var CurGrid = 0;
@@ -14782,71 +14751,72 @@ CTable.prototype.Internal_UpdateCellW = function(Col)
 	}
 };
 /**
- * Сравниваем границы двух соседних ячеек.
- * @param Border1
- * @param Border2
- * @param bTableBorder1 - является ли граница границей всей таблицы
- * @param bTableBorder2 - является ли граница границей всей таблицы
+ * Получаем какую из двух заданных конфликтующих границ использовать
+ * @param oBorder1 {CDocumentBorder}
+ * @param oBorder2 {CDocumentBorder}
+ * @param [isTableBorder1=false] {boolean} является ли граница границей всей таблицы
+ * @param [isTableBorder2=false] {boolean} является ли граница границей всей таблицы
+ * @returns {CDocumentBorder}
  */
-CTable.prototype.Internal_CompareBorders = function(Border1, Border2, bTableBorder1, bTableBorder2)
+CTable.prototype.private_ResolveBordersConflict = function(oBorder1, oBorder2, isTableBorder1, isTableBorder2)
 {
-	if ("undefined" === typeof(bTableBorder1))
-		bTableBorder1 = false;
+	if (undefined === isTableBorder1)
+		isTableBorder1 = false;
 
-	if ("undefined" === typeof(bTableBorder2))
-		bTableBorder2 = false;
+	if (undefined === isTableBorder2)
+		isTableBorder2 = false;
 
 	// Граница ячейки всегда побеждает границу таблицы, если первая задана
-	if (true === bTableBorder1)
-		return Border2;
+	if (isTableBorder1)
+		return oBorder2;
 
-	if (true === bTableBorder2)
-		return Border1;
+	if (isTableBorder2)
+		return oBorder1;
 
 	// Всегда побеждает непустая граница
-	if (border_None === Border1.Value)
-		return Border2;
+	if (oBorder1.IsNone())
+		return oBorder2;
 
-	if (border_None === Border2.Value)
-		return Border1;
+	if (oBorder2.IsNone())
+		return oBorder1;
 
 	// TODO: Как только мы реализуем рисование не только простых границ,
 	//       сделать здесь обработку. W_b = Border.Size * Border_Num,
 	//       где Border_Num зависит от Border.Value
 
-	var W_b_1 = Border1.Size;
-	var W_b_2 = Border2.Size;
+	var W_b_1 = oBorder1.Size;
+	var W_b_2 = oBorder2.Size;
 	if (W_b_1 > W_b_2)
-		return Border1;
+		return oBorder1;
 	else if (W_b_2 > W_b_1)
-		return Border2;
+		return oBorder2;
 
-	var Brightness_1_1 = Border1.Color.r + Border1.Color.b + 2 * Border1.Color.g;
-	var Brightness_1_2 = Border2.Color.r + Border2.Color.b + 2 * Border2.Color.g;
+	var Brightness_1_1 = oBorder1.Color.r + oBorder1.Color.b + 2 * oBorder1.Color.g;
+	var Brightness_1_2 = oBorder2.Color.r + oBorder2.Color.b + 2 * oBorder2.Color.g;
 
 	if (Brightness_1_1 < Brightness_1_2)
-		return Border1;
+		return oBorder1;
 	else if (Brightness_1_2 < Brightness_1_1)
-		return Border2;
+		return oBorder2;
 
-	var Brightness_2_1 = Border1.Color.b + 2 * Border1.Color.g;
-	var Brightness_2_2 = Border2.Color.b + 2 * Border2.Color.g;
+	var Brightness_2_1 = oBorder1.Color.b + 2 * oBorder1.Color.g;
+	var Brightness_2_2 = oBorder2.Color.b + 2 * oBorder2.Color.g;
 
 	if (Brightness_2_1 < Brightness_2_2)
-		return Border1;
+		return oBorder1;
 	else if (Brightness_2_2 < Brightness_2_1)
-		return Border2;
+		return oBorder2;
 
-	var Brightness_3_1 = Border1.Color.g;
-	var Brightness_3_2 = Border2.Color.g;
+	var Brightness_3_1 = oBorder1.Color.g;
+	var Brightness_3_2 = oBorder2.Color.g;
 
 	if (Brightness_3_1 < Brightness_3_2)
-		return Border1;
+		return oBorder1;
 	else if (Brightness_3_2 < Brightness_3_1)
-		return Border2;
+		return oBorder2;
 
-	// Две границы функционально идентичны, нам все равно какую рисовать.
-	return Border1;
+	// Две границы функционально идентичны, нам все равно какую использовать
+	return oBorder1;
 };
 /**
  * Получаем левую верхнюю ячейку в текущем объединении
@@ -15216,7 +15186,7 @@ CTable.prototype.private_UpdateTableMarkup = function(nRowIndex, nCellIndex, nCu
 CTable.prototype.private_CheckHitInBorder = function(X, Y, nCurPage)
 {
 	// Сначала определим ячейку, у которой границы мы будем проверять
-	var oCellPos = this.Internal_GetCellByXY(X, Y, nCurPage);
+	var oCellPos = this.private_GetCellByXY(X, Y, nCurPage);
 
 	var oResult = {
 		Pos             : oCellPos,

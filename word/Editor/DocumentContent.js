@@ -251,6 +251,14 @@ CDocumentContent.prototype.CreateDuplicateComments = function()
 		}
 	}
 };
+/**
+ * Устанавливаем родительский класс
+ * @param oParent
+ */
+CDocumentContent.prototype.SetParent = function(oParent)
+{
+	this.Parent = oParent;
+};
 //-----------------------------------------------------------------------------------
 // Функции, к которым идет обращение из контента
 //-----------------------------------------------------------------------------------
@@ -1505,13 +1513,13 @@ CDocumentContent.prototype.UpdateEndInfo = function()
 		this.Content[Index].UpdateEndInfo();
 	}
 };
-CDocumentContent.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY)
+CDocumentContent.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY, isUpdateTarget)
 {
 	var oCurPosInfo = null;
 
 	if (docpostype_Content === this.CurPos.Type)
 	{
-		if (this.CurPos.ContentPos >= 0 && undefined != this.Content[this.CurPos.ContentPos])
+		if (this.CurPos.ContentPos >= 0 && undefined !== this.Content[this.CurPos.ContentPos])
 		{
 			this.private_CheckCurPage();
 
@@ -1522,13 +1530,13 @@ CDocumentContent.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY)
 			}
 			else
 			{
-				oCurPosInfo = this.Content[this.CurPos.ContentPos].RecalculateCurPos(bUpdateX, bUpdateY);
+				oCurPosInfo = this.Content[this.CurPos.ContentPos].RecalculateCurPos(bUpdateX, bUpdateY, isUpdateTarget);
 			}
 		}
 	}
 	else // if (docpostype_DrawingObjects === this.CurPos.Type)
 	{
-		oCurPosInfo = this.LogicDocument.DrawingObjects.recalculateCurPos(bUpdateX, bUpdateY);
+		oCurPosInfo = this.LogicDocument.DrawingObjects.recalculateCurPos(bUpdateX, bUpdateY, isUpdateTarget);
 	}
 
 	if (oCurPosInfo)
@@ -4103,9 +4111,6 @@ CDocumentContent.prototype.MoveCursorToXY = function(X, Y, AddToSelect, bRemoveO
 			this.CurPos.ContentPos = ContentPos;
 			var ElementPageIndex   = this.private_GetElementPageIndexByXY(ContentPos, X, Y, this.CurPage);
 			this.Content[ContentPos].MoveCursorToXY(X, Y, false, false, ElementPageIndex);
-
-			this.Interface_Update_ParaPr();
-			this.Interface_Update_TextPr();
 		}
 	}
 	else
@@ -4123,9 +4128,6 @@ CDocumentContent.prototype.MoveCursorToXY = function(X, Y, AddToSelect, bRemoveO
 			this.CurPos.ContentPos = ContentPos;
 			var ElementPageIndex   = this.private_GetElementPageIndexByXY(ContentPos, X, Y, this.CurPage);
 			this.Content[ContentPos].MoveCursorToXY(X, Y, false, false, ElementPageIndex);
-
-			this.Interface_Update_ParaPr();
-			this.Interface_Update_TextPr();
 		}
 	}
 };
@@ -7757,24 +7759,6 @@ CDocumentContent.prototype.Write_ToBinary2 = function(Writer)
 	for (var Index = 0; Index < Count; Index++)
 		Writer.WriteString2(ContentToWrite[Index].Get_Id());
 
-	if (this.Parent && this.Parent.Get_Worksheet)
-	{
-		Writer.WriteBool(true);
-		var worksheet = this.Parent.Get_Worksheet();
-		if (worksheet)
-		{
-			Writer.WriteBool(true);
-			Writer.WriteString2(worksheet.getId())
-		}
-		else
-		{
-			Writer.WriteBool(false);
-		}
-	}
-	else
-	{
-		Writer.WriteBool(false);
-	}
 };
 CDocumentContent.prototype.Read_FromBinary2 = function(Reader)
 {
@@ -7809,24 +7793,11 @@ CDocumentContent.prototype.Read_FromBinary2 = function(Reader)
 
 	AscCommon.CollaborativeEditing.Add_LinkData(this, LinkData);
 
-	var b_worksheet = Reader.GetBool();
-	if (b_worksheet)
+	var oCellApi = window["Asc"] && window["Asc"]["editor"];
+	if (oCellApi && oCellApi.wbModel)
 	{
 		this.Parent        = g_oTableId.Get_ById(LinkData.Parent);
-		var b_worksheet_id = Reader.GetBool();
-		if (b_worksheet_id)
-		{
-			var id  = Reader.GetString2();
-			var api = window["Asc"]["editor"];
-			if (api.wb)
-			{
-				var worksheet = api.wbModel.getWorksheetById(id);
-				if (worksheet)
-				{
-					this.DrawingDocument = worksheet.getDrawingDocument();
-				}
-			}
-		}
+		this.DrawingDocument = oCellApi.wbModel.DrawingDocument;
 	}
 	else
 	{

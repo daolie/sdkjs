@@ -1732,9 +1732,12 @@ Paragraph.prototype.Reset_RecalculateCache = function()
 {
 
 };
-Paragraph.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY)
+Paragraph.prototype.RecalculateCurPos = function(bUpdateX, bUpdateY, isUpdateTarget)
 {
-	var oCurPosInfo = this.Internal_Recalculate_CurPos(this.CurPos.ContentPos, true, true, false);
+	if (undefined === isUpdateTarget)
+		isUpdateTarget = true;
+
+	var oCurPosInfo = this.Internal_Recalculate_CurPos(this.CurPos.ContentPos, true, isUpdateTarget, false);
 
 	if (bUpdateX)
 		this.CurPos.RealX = oCurPosInfo.X;
@@ -2487,8 +2490,13 @@ Paragraph.prototype.Internal_Draw_4 = function(CurPage, pGraphics, Pr, BgColor, 
 		var Y = this.Pages[CurPage].Y + this.Lines[CurLine].Y;
 		var X = this.Pages[CurPage].X;
 
-		if (this.LineNumbersInfo && (1 === RangesCount || (RangesCount > 1 && (Line.Ranges[0].W > 0.001 || Line.Ranges[0].WEnd > 0.001))))
+		if (this.LineNumbersInfo
+			&& (1 === RangesCount || (RangesCount > 1 && (Line.Ranges[0].W > 0.001 || Line.Ranges[0].WEnd > 0.001)))
+			&& (!(Line.Info & paralineinfo_Empty) || (Line.Info & paralineinfo_End) || !(Line.Info & paralineinfo_BreakPage))
+			&& (!(Line.Info & paralineinfo_Empty) || !(Line.Info & paralineinfo_End) || undefined === this.Get_SectionPr()))
+		{
 			this.private_DrawLineNumber(X, Y, pGraphics, this.LineNumbersInfo.StartNum + CurLine + 1, Theme, ColorMap, CurPage, CurLine);
+		}
 
 		for (var CurRange = 0; CurRange < RangesCount; CurRange++)
 		{
@@ -2590,9 +2598,22 @@ Paragraph.prototype.Internal_Draw_4 = function(CurPage, pGraphics, Pr, BgColor, 
 						else
 						{
 							if (true === oNumTextPr.Color.Auto)
-								pGraphics.b_color1(AutoColor.r, AutoColor.g, AutoColor.b, 255);
+							{
+								if(oNumTextPr.FontRef && oNumTextPr.FontRef.Color)
+								{
+									oNumTextPr.FontRef.Color.check(Theme, ColorMap);
+									RGBA = oNumTextPr.FontRef.Color.RGBA;
+									pGraphics.b_color1(RGBA.R, RGBA.G, RGBA.B, 255);
+								}
+								else
+								{
+									pGraphics.b_color1(AutoColor.r, AutoColor.g, AutoColor.b, 255);
+								}
+							}
 							else
+							{
 								pGraphics.b_color1(oNumTextPr.Color.r, oNumTextPr.Color.g, oNumTextPr.Color.b, 255);
+							}
 						}
 
 						if (NumberingItem.HaveSourceNumbering() || reviewtype_Common !== nReviewType)
@@ -3220,7 +3241,7 @@ Paragraph.prototype.private_DrawLineNumber = function(X, Y, oContext, nLineNumbe
 
 	var oSectPr = this.Get_SectPr();
 
-	var nStart    = oSectPr.GetLineNumbersStart();
+	var nStart    = oSectPr.GetLineNumbersStart() + 1;
 	var nCountBy  = oSectPr.GetLineNumbersCountBy();
 	var nDistance = oSectPr.GetLineNumbersDistance();
 	var nRestart  = oSectPr.GetLineNumbersRestart();
@@ -3253,7 +3274,7 @@ Paragraph.prototype.private_DrawLineNumber = function(X, Y, oContext, nLineNumbe
 	if (nCountBy && nCountBy > 1 && 0 !== _nLineNumber % nCountBy)
 		return;
 
-	var nLineNumDistance = undefined === nDistance ? AscCommon.TwipsToMM(180) : AscCommon.TwipsToMM(nDistance);
+	var nLineNumDistance = undefined === nDistance ? (this.ColumnsCount > 1 ? AscCommon.TwipsToMM(180) : AscCommon.TwipsToMM(360)) : AscCommon.TwipsToMM(nDistance);
 	var sLineNum         = "" + _nLineNumber;
 
 	var oTextPr    = oLineNumInfo.GetTextPr();
@@ -5916,8 +5937,6 @@ Paragraph.prototype.GetNextRunElements = function(oRunElements)
 
 		CurPos++;
 	}
-
-	oRunElements.CheckEnd();
 };
 /**
  * Составляем список элементов рана, идущих до заданной позиции
@@ -5943,8 +5962,6 @@ Paragraph.prototype.GetPrevRunElements = function(oRunElements)
 
 		CurPos--;
 	}
-
-	oRunElements.CheckEnd();
 };
 /**
  * Получаем следующий за курсором элемент рана
@@ -5966,7 +5983,7 @@ Paragraph.prototype.GetNextRunElement = function()
  */
 Paragraph.prototype.GetPrevRunElement = function()
 {
-	var oRunElements = new CParagraphRunElements(this.Get_ParaContentPos(this.Selection.Use, false, false), 1, null);
+	var oRunElements = new CParagraphRunElements(this.Get_ParaContentPos(this.Selection.Use, false, false), 1, null, true);
 	this.GetPrevRunElements(oRunElements);
 
 	if (oRunElements.Elements.length <= 0)
@@ -11990,6 +12007,14 @@ Paragraph.prototype.Split = function(NewParagraph)
 
 	var TextPr = this.Get_TextPr(ContentPos);
 
+	var oLogicDocument = this.GetLogicDocument();
+	var oStyles        = oLogicDocument ? oLogicDocument.GetStyles() : null;
+	if (oStyles && (TextPr.RStyle === oStyles.GetDefaultEndnoteReference() || TextPr.RStyle === oStyles.GetDefaultFootnoteReference()))
+	{
+		TextPr        = TextPr.Copy();
+		TextPr.RStyle = undefined;
+	}
+
 	// Разделяем текущий элемент (возвращается правая, отделившаяся часть, если она null, тогда заменяем
 	// ее на пустой ран с заданными настройками).
 	var NewElement = this.Content[CurPos].Split(ContentPos, 1);
@@ -12163,8 +12188,14 @@ Paragraph.prototype.Continue = function(NewParagraph)
 		// 2. Стиль сноски не продолжаем
 		TextPr.HighLight = highlight_None;
 
-		if (this.bFromDocument && this.LogicDocument && TextPr.RStyle === this.LogicDocument.GetStyles().GetDefaultFootnoteReference())
+		var oStyles;
+		if (this.bFromDocument
+			&& this.LogicDocument
+			&& (oStyles = this.LogicDocument.GetStyles())
+			&& (TextPr.RStyle === oStyles.GetDefaultFootnoteReference() || TextPr.RStyle === oStyles.GetDefaultEndnoteReference()))
+		{
 			TextPr.RStyle = undefined;
+		}
 	}
 
 	// Копируем настройки параграфа
@@ -12761,6 +12792,33 @@ Paragraph.prototype.RemoveCommentMarks = function(Id)
 			Count--;
 		}
 	}
+};
+Paragraph.prototype.MoveCursorToCommentMark = function(sId)
+{
+	for (var nPos = 0, nCount = this.Content.length; nPos < nCount; ++nPos)
+	{
+		var oItem = this.Content[nPos];
+		if (para_Comment === oItem.Type && sId === oItem.CommentId)
+		{
+			nPos--;
+			while (nPos >= 0)
+			{
+				if (this.Content[nPos].IsCursorPlaceable())
+				{
+					this.Content[nPos].SetThisElementCurrent();
+					this.Content[nPos].MoveCursorToEndPos();
+					return;
+				}
+
+				nPos--;
+			}
+
+			break;
+		}
+	}
+
+	this.MoveCursorToStartPos();
+	this.Document_SetThisElementCurrent(false);
 };
 Paragraph.prototype.ReplaceMisspelledWord = function(Word, oElement)
 {
@@ -14192,7 +14250,7 @@ Paragraph.prototype.CanUpdateTarget = function(CurPage)
 		return false;
 
 	if (this.Pages.length <= CurPage)
-		return true;
+		return false;
 
 	if (!this.Pages[CurPage] || !this.Lines[this.Pages[CurPage].EndLine] || !this.Lines[this.Pages[CurPage].EndLine].Ranges || this.Lines[this.Pages[CurPage].EndLine].Ranges.length <= 0)
 		return false;
@@ -14783,6 +14841,14 @@ Paragraph.prototype.private_FindBookmarks = function(nStart, nEnd)
 {
 	var nPos;
 	var aBookmarks = [], oElement;
+	if(nStart < 0 || nEnd < 0)
+	{
+		return aBookmarks;
+	}
+	if(nStart >= this.Content.length || nEnd >= this.Content.length)
+	{
+		return aBookmarks;
+	}
 	if(nStart < nEnd)
 	{
 		for(nPos = nStart; nPos <= nEnd; ++nPos)
@@ -16002,7 +16068,8 @@ Paragraph.prototype.GetLineNumbersInfo = function(isNewPage)
  */
 Paragraph.prototype.IsCountLineNumbers = function()
 {
-	return (this.IsInline() && (!this.Get_SectionPr() || !this.IsEmpty()) && !this.IsSuppressLineNumbers());
+	var oPrev = this.Get_DocumentPrev();
+	return (this.IsInline() && (!this.Get_SectionPr() || !this.IsEmpty() || (oPrev && oPrev.IsParagraph() && undefined !== oPrev.Get_SectionPr())) && !this.IsSuppressLineNumbers());
 };
 
 Paragraph.prototype.asc_getText = function()
@@ -17695,22 +17762,29 @@ CParagraphRunElements.prototype.Add = function(oElement, oRun)
 {
 	if (oRun && oRun.GetParent() !== this.StartClass && this.BreakDifferentClass)
 	{
-		// Добавляем этот элемент, потому что в конце мы 1 элемент удаляем из-за проверки достижения края параграфа
 		this.Count = 0;
-		this.private_Add(oElement);
+		this.End   = false;
 		return;
 	}
 
 	if (this.CheckType(oElement.Type))
 	{
-		this.Count--;
-		this.private_Add(oElement);
+		if (1 === this.Count)
+		{
+			this.Count = 0;
+			this.End   = false;
+		}
+		else
+		{
+			this.private_Add(oElement);
+			this.Count--;
+			this.End = true;
+		}
 	}
 	else if (this.BreakBadType)
 	{
-		// Добавляем этот элемент, потому что в конце мы 1 элемент удаляем из-за проверки достижения края параграфа
 		this.Count = 0;
-		this.private_Add(oElement);
+		this.End   = false;
 	}
 };
 CParagraphRunElements.prototype.private_Add = function(oElement)
@@ -17737,35 +17811,6 @@ CParagraphRunElements.prototype.private_Add = function(oElement)
 CParagraphRunElements.prototype.IsEnoughElements = function()
 {
 	return (this.Count <= 0);
-};
-/**
- * Проверяем достиглили мы края параграфа
- * @param isEnd {boolean}
- */
-CParagraphRunElements.prototype.CheckEnd = function(isEnd)
-{
-	if (this.Count <= 0)
-	{
-		this.End = false;
-		if (this.Reverse)
-		{
-			if (this.SaveContentPositions)
-				this.ContentPositions.splice(0, 1);
-
-			this.Elements.splice(0, 1);
-		}
-		else
-		{
-			if (this.SaveContentPositions)
-				this.ContentPositions.splice(this.ContentPositions.length - 1, 1);
-
-			this.Elements.splice(this.Elements.length - 1, 1);
-		}
-	}
-	else if (this.Count >= 1)
-	{
-		this.End = true;
-	}
 };
 /**
  * Проверяем достигли ли мы конца параграфа
