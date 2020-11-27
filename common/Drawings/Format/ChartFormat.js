@@ -6352,6 +6352,7 @@ function CCatAx()
         if(this.numFmt) {
             ret.putNumFmt(new AscCommon.asc_CAxNumFmt(this.numFmt));
         }
+        ret.putAuto(this.auto !== false);
         return ret;
     };
 
@@ -6542,6 +6543,7 @@ function CCatAx()
                 this.setNumFmt(oNumFmt);
             }
         }
+        this.setAuto(props.getAuto());
     };
     CCatAx.prototype.getObjectType = function()
     {
