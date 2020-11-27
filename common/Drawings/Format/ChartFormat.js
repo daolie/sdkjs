@@ -5191,19 +5191,19 @@ function CPlotArea()
                 }
             }
             if(aNewAxes.length > 0) {
-                if(this.parent.isHBarType(nType) || this.isBarType(nType)) {
+                if(this.parent.isHBarType(nType) || this.parent.isBarType(nType)) {
                     oNewChart = this.parent.createBarChart(nType, [oSeries], aNewAxes, this);
                 }
-                else if(this.isLineType(nType)) {
+                else if(this.parent.isLineType(nType)) {
                     oNewChart = this.parent.createLineChart(nType, [oSeries], aNewAxes, this);
                 }
-                else if(this.isAreaType(nType)) {
+                else if(this.parent.isAreaType(nType)) {
                     oNewChart = this.parent.createAreaChart(nType, [oSeries], aNewAxes, this);
                 }
-                else if(this.isScatterType(nType)) {
+                else if(this.parent.isScatterType(nType)) {
                     oNewChart = this.parent.createScatterChart(nType, [oSeries], aNewAxes, this);
                 }
-                else if(this.isStockChart(nType)) {
+                else if(this.parent.isStockChart(nType)) {
                     oNewChart = this.parent.createStockChart(nType, [oSeries], aNewAxes, this);
                 }
             }
