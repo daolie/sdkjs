@@ -603,12 +603,10 @@
 	};
 
 	var c_oAscAxisType = {
-		auto : 0,
-		date : 1,
-		text : 2,
-		cat  : 3,
-		val  : 4,
-		ser  : 5
+		date : 0,
+		cat  : 1,
+		val  : 2,
+		ser  : 3
 	};
 
 	var c_oAscHAnchor = {

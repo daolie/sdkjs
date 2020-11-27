@@ -6917,7 +6917,11 @@ function CDateAx()
             this.parent.parent.parent.addToRecalculate();
         }
     };
-    CDateAx.prototype.getMenuProps = CCatAx.prototype.getMenuProps;
+    CDateAx.prototype.getMenuProps = function() {
+        var oProps = CCatAx.prototype.getMenuProps.call(this);
+        oProps.putAxisType(c_oAscAxisType.date);
+        return oProps;
+    };
     CDateAx.prototype.setMenuProps = CCatAx.prototype.setMenuProps;
     CDateAx.prototype.createDuplicate = function()
     {

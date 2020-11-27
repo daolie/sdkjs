@@ -862,6 +862,7 @@
 		this.label = null;
 		this.gridlines = null;
 		this.numFmt = null;
+		this.auto = false;
 	}
 	asc_CatAxisSettings.prototype.isEqual = function(oPr){
 		if(!oPr){
@@ -916,6 +917,9 @@
 			return false;
 		}
 		if(this.gridlines !== oPr.gridlines) {
+			return false;
+		}
+		if(this.auto !== oPr.auto) {
 			return false;
 		}
 		var bEqualNumFmt = false;
@@ -1024,6 +1028,7 @@
 		this.putIntervalBetweenTick(1);
 		this.putCrossesRule(Asc.c_oAscCrossesRule.auto);
 		this.putShow(true);
+		this.putAuto(true);
 	};
 	asc_CatAxisSettings.prototype.getShow = function() {
 		return this.show;
@@ -1048,6 +1053,12 @@
 	};
 	asc_CatAxisSettings.prototype.putNumFmt = function(v) {
 		this.numFmt = v;
+	};
+	asc_CatAxisSettings.prototype.getAuto = function() {
+		return this.auto;
+	};
+	asc_CatAxisSettings.prototype.putAuto = function(v) {
+		this.auto = v;
 	};
 	asc_CatAxisSettings.prototype.read = function(_params, _cursor){
 		var _continue = true;
@@ -5521,6 +5532,8 @@
 	prot["getGridlines"] = prot.getGridlines;
 	prot["putNumFmt"] = prot.putNumFmt;
 	prot["getNumFmt"] = prot.getNumFmt;
+	prot["getAuto"] = prot.getAuto;
+	prot["putAuto"] = prot.putAuto;
 
 	window["Asc"]["asc_ChartSettings"] = window["Asc"].asc_ChartSettings = asc_ChartSettings;
 	prot = asc_ChartSettings.prototype;
