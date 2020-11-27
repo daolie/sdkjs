@@ -3713,7 +3713,7 @@ function CPlotArea()
             if(oChart.isSecondaryAxis() === bIsSecondary) {
                 nCurChartType = oChart.getChartType();
                 if(this.isPieType(nCurChartType) || this.isDoughnutType(nCurChartType)) {
-                    return continue;
+                    continue;
                 }
                 if(this.isHBarType(nCurChartType)) {
                     if(this.isHBarType(nType)) {
@@ -5217,10 +5217,7 @@ function CPlotArea()
         if(!this.parent) {
             return Asc.c_oAscError.ID.No;
         }
-        var nChart, oChart;
-        var aCharts = this.parent.charts;
         var nChartType = this.getChartType();
-        var nCurChartType;
         if(this.tryMoveSeries(oSeries, nChartType, bIsSecondaryAxis)) {
             return Asc.c_oAscError.ID.No;
         }
