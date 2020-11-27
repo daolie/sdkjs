@@ -1546,6 +1546,9 @@
 		return this.dataLabelsPos;
 	};
 	asc_ChartSettings.prototype.getType = function() {
+		if(this.chartSpace) {
+			return this.chartSpace.getChartType();
+		}
 		return this.type;
 	};
 	asc_ChartSettings.prototype.putType = function(v) {
@@ -1577,7 +1580,9 @@
 	};
 	asc_ChartSettings.prototype.changeType = function(type) {
 		this.putType(type);
-		//TODO change chartSpace
+		if(this.chartSpace) {
+			this.chartSpace.changeChartType(type);
+		}
 	};
 	asc_ChartSettings.prototype.getSeries = function() {
 		if(this.chartSpace) {
