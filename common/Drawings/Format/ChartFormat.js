@@ -3464,7 +3464,7 @@ function getMinMaxFromArrPoints(aPoints)
     };
     CSeriesBase.prototype.asc_canChangeAxisType = function() {
         return this.canChangeAxisType();
-    }
+    };
     CSeriesBase.prototype["asc_canChangeAxisType"] = CSeriesBase.prototype.asc_canChangeAxisType;
     CSeriesBase.prototype.tryChangeSeriesAxisType = function(bIsSecondary) {
         if(!this.parent) {
@@ -5162,10 +5162,10 @@ function CPlotArea()
         var oChartForAxes = null;
         if(this.parent.isPieType(nType) || this.parent.isDoughnutType(nType)) {
             if(this.parent.isPieType(nType)) {
-                oNewChart = this.createPieChart(nType, [oSeries], this);
+                oNewChart = this.parent.createPieChart(nType, [oSeries], this);
             }
             else {
-                oNewChart = this.createDoughnutChart(nType, [oSeries], this);
+                oNewChart = this.parent.createDoughnutChart(nType, [oSeries], this);
             }
         }
         else {
@@ -5192,19 +5192,19 @@ function CPlotArea()
             }
             if(aNewAxes.length > 0) {
                 if(this.parent.isHBarType(nType) || this.isBarType(nType)) {
-                    oNewChart = this.createBarChart(nType, [oSeries], aNewAxes, this);
+                    oNewChart = this.parent.createBarChart(nType, [oSeries], aNewAxes, this);
                 }
                 else if(this.isLineType(nType)) {
-                    oNewChart = this.createLineChart(nType, [oSeries], aNewAxes, this);
+                    oNewChart = this.parent.createLineChart(nType, [oSeries], aNewAxes, this);
                 }
                 else if(this.isAreaType(nType)) {
-                    oNewChart = this.createAreaChart(nType, [oSeries], aNewAxes, this);
+                    oNewChart = this.parent.createAreaChart(nType, [oSeries], aNewAxes, this);
                 }
                 else if(this.isScatterType(nType)) {
-                    oNewChart = this.createScatterChart(nType, [oSeries], aNewAxes, this);
+                    oNewChart = this.parent.createScatterChart(nType, [oSeries], aNewAxes, this);
                 }
                 else if(this.isStockChart(nType)) {
-                    oNewChart = this.createStockChart(nType, [oSeries], aNewAxes, this);
+                    oNewChart = this.parent.createStockChart(nType, [oSeries], aNewAxes, this);
                 }
             }
         }
