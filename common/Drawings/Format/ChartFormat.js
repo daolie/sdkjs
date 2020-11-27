@@ -3221,6 +3221,24 @@ function getMinMaxFromArrPoints(aPoints)
             this.dLbls.setDeleteValue(bVal)
         }
     };
+    CSeriesBase.prototype.getFirstPointFormatCode = function() {
+        var sDefaultValAxFormatCode = null;
+        var aPoints = AscFormat.getPtsFromSeries(this);
+        if(aPoints[0] && typeof aPoints[0].formatCode === "string" && aPoints[0].formatCode.length > 0){
+            sDefaultValAxFormatCode = aPoints[0].formatCode;
+        }
+        return sDefaultValAxFormatCode;
+    };
+    CSeriesBase.prototype.setDlblsProps = function(oProps) {
+        if(!this.parent) {
+            return;
+        }
+        var nPos = fCheckDLPostion(nPos, this.parent.getPossibleDLblsPosition());
+        if(!this.dLbls) {
+            this.setDLbls(new AscFormat.CDLbls());
+        }
+        this.dLbls.setSettings(nPos, oProps);
+    };
     CSeriesBase.prototype.asc_getName = function() {
         return AscFormat.ExecuteNoHistory(CSeriesBase.prototype.getName, this, []);
     };
@@ -3352,7 +3370,9 @@ function getMinMaxFromArrPoints(aPoints)
         return this.getObjectType() === AscDFH.historyitem_type_ScatterSer;
     };
     CSeriesBase.prototype["asc_IsScatter"] = CSeriesBase.prototype.asc_IsScatter;
-    CSeriesBase.prototype.asc_getOrder = CSeriesBase.prototype.getOrder;
+    CSeriesBase.prototype.asc_getOrder = function() {
+        return this.getOrder();
+    };
     CSeriesBase.prototype["asc_getOrder"] = CSeriesBase.prototype.asc_getOrder;
     CSeriesBase.prototype.asc_setOrder = function (nVal) {
         History.Create_NewPoint(0);
@@ -3432,50 +3452,51 @@ function getMinMaxFromArrPoints(aPoints)
         }
         return false;
     };
-    CSeriesBase.prototype["asc_getIsSecondaryAxis"] = CSeriesBase.prototype.isSecondaryAxis;
-    CSeriesBase.prototype.getFirstPointFormatCode = function() {
-        var sDefaultValAxFormatCode = null;
-        var aPoints = AscFormat.getPtsFromSeries(this);
-        if(aPoints[0] && typeof aPoints[0].formatCode === "string" && aPoints[0].formatCode.length > 0){
-            sDefaultValAxFormatCode = aPoints[0].formatCode;
-        }
-        return sDefaultValAxFormatCode;
+    CSeriesBase.prototype.asc_getIsSecondaryAxis = function() {
+        return this.isSecondaryAxis();
     };
-    CSeriesBase.prototype.setDlblsProps = function(oProps) {
-        if(!this.parent) {
-            return;
-        }
-        var nPos = fCheckDLPostion(nPos, this.parent.getPossibleDLblsPosition());
-        if(!this.dLbls) {
-            this.setDLbls(new AscFormat.CDLbls());
-        }
-        this.dLbls.setSettings(nPos, oProps);
-    };
+    CSeriesBase.prototype["asc_getIsSecondaryAxis"] = CSeriesBase.prototype.asc_getIsSecondaryAxis;
     CSeriesBase.prototype.canChangeAxisType = function() {
         if(!this.parent) {
             return false;
         }
         return this.parent.canChangeAxisType();
     };
-    CSeriesBase.prototype["asc_canChangeAxisType"] = CSeriesBase.prototype.canChangeAxisType;
-    CSeriesBase.prototype.changeAxisType = function(bIsSecondary) {
+    CSeriesBase.prototype.asc_canChangeAxisType = function() {
+        return this.canChangeAxisType();
+    }
+    CSeriesBase.prototype["asc_canChangeAxisType"] = CSeriesBase.prototype.asc_canChangeAxisType;
+    CSeriesBase.prototype.tryChangeSeriesAxisType = function(bIsSecondary) {
         if(!this.parent) {
-            return;
+            return Asc.c_oAscError.ID.No;
         }
         if(!this.canChangeAxisType()) {
-            return;
+            return Asc.c_oAscError.ID.No;
         }
-        if(bIsSecondary === this.isSecondaryAxis()) {
-            return;
-        }
-        this.parent.tryChangeSeriesChartType(this, this.parent.getChartType(), bIsSecondary);
+        return this.parent.tryChangeSeriesAxisType(this, bIsSecondary);
     };
-    CSeriesBase.prototype.changeChartType = function(nType) {
+    CSeriesBase.prototype.asc_TryChangeAxisType = function(bIsSecondary) {
+        History.Create_NewPoint(0);
+        var nRes = this.tryChangeSeriesAxisType(bIsSecondary);
+        if(nRes === Asc.c_oAscError.ID.No) {
+            this.onDataUpdate();
+        }
+    };
+    CSeriesBase.prototype["asc_TryChangeAxisType"] = CSeriesBase.prototype.asc_TryChangeAxisType;
+    CSeriesBase.prototype.tryChangeChartType = function(nType) {
         if(!this.parent) {
             return Asc.c_oAscError.ID.No;
         }
         return this.parent.tryChangeSeriesChartType(this, nType);
     };
+    CSeriesBase.prototype.asc_TryChangeChartType = function(nType) {
+        History.Create_NewPoint(0);
+        var nRes = this.tryChangeChartType(nType);
+        if(nRes === Asc.c_oAscError.ID.No) {
+            this.onDataUpdate();
+        }
+    };
+    CSeriesBase.prototype["asc_TryChangeChartType"] = CSeriesBase.prototype.asc_TryChangeChartType;
 
 function CPlotArea()
 {
@@ -5210,7 +5231,7 @@ function CPlotArea()
         }
         return this.tryCreateNewChartFormSeries(oSeries, nType, bIsSecondaryAxis);
     };
-    CChartBase.prototype.tryChangeSeriesAxesType = function(oSeries, bIsSecondaryAxis) {
+    CChartBase.prototype.tryChangeSeriesAxisType = function(oSeries, bIsSecondaryAxis) {
         if(this.isSecondaryAxis() === bIsSecondaryAxis) {
             return Asc.c_oAscError.ID.No;
         }
