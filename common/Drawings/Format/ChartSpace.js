@@ -11410,7 +11410,8 @@ CChartSpace.prototype.hitInTextRect = function()
                 }
                 if(oTypedChart.getObjectType() === AscDFH.historyitem_type_DoughnutChart ||
                     oTypedChart.getObjectType() === AscDFH.historyitem_type_PieChart ||
-                    oTypedChart.getObjectType() === AscDFH.historyitem_type_OfPieChart) {
+                    oTypedChart.getObjectType() === AscDFH.historyitem_type_OfPieChart||
+                    oTypedChart.getObjectType() === AscDFH.historyitem_type_AreaChart) {
                     aOrderedSeries = aChartSeries.concat(aOrderedSeries);
                 }
                 else {

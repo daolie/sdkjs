@@ -92,7 +92,7 @@ function (window, undefined) {
     drawingsChangesMap[AscDFH.historyitem_AreaSeries_SetTx]                = function(oClass, value){oClass.tx            = value;};
     drawingsChangesMap[AscDFH.historyitem_AreaSeries_SetVal]               = function(oClass, value){oClass.val           = value;};
     drawingsChangesMap[AscDFH.historyitem_CatAxSetAuto]                       = function(oClass, value){oClass.auto           = value;};
-    drawingsChangesMap[AscDFH.historyitem_CatAxSetAxId]                       = function(oClass, value){oClass.axId           = value;};
+    drawingsChangesMap[AscDFH.historyitem_CatAxSetAxId]                       = function(oClass, value){oClass.axId           = value; checkAxIdCounter(value);};
     drawingsChangesMap[AscDFH.historyitem_CatAxSetAxPos]                      = function(oClass, value){oClass.axPos          = value;};
     drawingsChangesMap[AscDFH.historyitem_CatAxSetCrossAx]                    = function(oClass, value){oClass.crossAx        = value;};
     drawingsChangesMap[AscDFH.historyitem_CatAxSetCrosses]                    = function(oClass, value){oClass.crosses        = value;};
@@ -114,7 +114,7 @@ function (window, undefined) {
     drawingsChangesMap[AscDFH.historyitem_CatAxSetTitle]                      = function(oClass, value){oClass.title          = value;};
     drawingsChangesMap[AscDFH.historyitem_CatAxSetTxPr]                       = function(oClass, value){oClass.txPr           = value;};
     drawingsChangesMap[AscDFH.historyitem_DateAxAuto]                         = function(oClass, value){oClass.auto             = value;};
-    drawingsChangesMap[AscDFH.historyitem_DateAxAxId]                         = function(oClass, value){oClass.axId             = value;};
+    drawingsChangesMap[AscDFH.historyitem_DateAxAxId]                         = function(oClass, value){oClass.axId             = value; checkAxIdCounter(value);};
     drawingsChangesMap[AscDFH.historyitem_DateAxAxPos]                        = function(oClass, value){oClass.axPos            = value;};
     drawingsChangesMap[AscDFH.historyitem_DateAxBaseTimeUnit]                 = function(oClass, value){oClass.baseTimeUnit     = value;};
     drawingsChangesMap[AscDFH.historyitem_DateAxCrossAx]                      = function(oClass, value){oClass.crossAx          = value;};
@@ -136,7 +136,7 @@ function (window, undefined) {
     drawingsChangesMap[AscDFH.historyitem_DateAxTickLblPos]                   = function(oClass, value){oClass.tickLblPos       = value;};
     drawingsChangesMap[AscDFH.historyitem_DateAxTitle]                        = function(oClass, value){oClass.title            = value;};
     drawingsChangesMap[AscDFH.historyitem_DateAxTxPr]                         = function(oClass, value){oClass.txPr             = value;};
-    drawingsChangesMap[AscDFH.historyitem_SerAxSetAxId]                       = function(oClass, value){oClass.axId           = value;};
+    drawingsChangesMap[AscDFH.historyitem_SerAxSetAxId]                       = function(oClass, value){oClass.axId           = value; checkAxIdCounter(value);};
     drawingsChangesMap[AscDFH.historyitem_SerAxSetAxPos]                      = function(oClass, value){oClass.axPos          = value;};
     drawingsChangesMap[AscDFH.historyitem_SerAxSetCrossAx]                    = function(oClass, value){oClass.crossAx        = value;};
     drawingsChangesMap[AscDFH.historyitem_SerAxSetCrosses]                    = function(oClass, value){oClass.crosses        = value;};
@@ -154,7 +154,7 @@ function (window, undefined) {
     drawingsChangesMap[AscDFH.historyitem_SerAxSetTickMarkSkip]               = function(oClass, value){oClass.tickMarkSkip   = value;};
     drawingsChangesMap[AscDFH.historyitem_SerAxSetTitle]                      = function(oClass, value){oClass.title          = value;};
     drawingsChangesMap[AscDFH.historyitem_SerAxSetTxPr]                       = function(oClass, value){oClass.txPr           = value;};
-    drawingsChangesMap[AscDFH.historyitem_ValAxSetAxId]                       = function(oClass, value){oClass.axId            = value;};
+    drawingsChangesMap[AscDFH.historyitem_ValAxSetAxId]                       = function(oClass, value){oClass.axId            = value; checkAxIdCounter(value);};
     drawingsChangesMap[AscDFH.historyitem_ValAxSetAxPos]                      = function(oClass, value){oClass.axPos           = value;};
     drawingsChangesMap[AscDFH.historyitem_ValAxSetCrossAx]                    = function(oClass, value){oClass.crossAx         = value;};
     drawingsChangesMap[AscDFH.historyitem_ValAxSetCrossBetween]               = function(oClass, value){oClass.crossBetween    = value;};
@@ -1002,25 +1002,30 @@ var c_oAscAxisType = Asc.c_oAscAxisType;
     var CChangesDrawingsDouble2 = AscDFH.CChangesDrawingsDouble2;
 
 
-function getMinMaxFromArrPoints(aPoints)
-{
-    if(Array.isArray(aPoints) && aPoints.length > 0)
+    function getMinMaxFromArrPoints(aPoints)
     {
-        if(isRealObject(aPoints[0]) && AscFormat.isRealNumber(aPoints[0].val) && isRealObject(aPoints[aPoints.length - 1]) && AscFormat.isRealNumber(aPoints[aPoints.length - 1].val))
+        if(Array.isArray(aPoints) && aPoints.length > 0)
         {
-            if(aPoints[0].val - aPoints[aPoints.length - 1].val <= 0)
+            if(isRealObject(aPoints[0]) && AscFormat.isRealNumber(aPoints[0].val) && isRealObject(aPoints[aPoints.length - 1]) && AscFormat.isRealNumber(aPoints[aPoints.length - 1].val))
             {
-                return {min: aPoints[0].val, max: aPoints[aPoints.length - 1].val};
-            }
-            else
-            {
-                return {min: aPoints[aPoints.length - 1].val, max: aPoints[0].val};
+                if(aPoints[0].val - aPoints[aPoints.length - 1].val <= 0)
+                {
+                    return {min: aPoints[0].val, max: aPoints[aPoints.length - 1].val};
+                }
+                else
+                {
+                    return {min: aPoints[aPoints.length - 1].val, max: aPoints[0].val};
+                }
             }
         }
+        return {min: null, max: null};
     }
-    return {min: null, max: null};
-}
 
+    function checkAxIdCounter(nAxId) {
+        if(AscFormat.isRealNumber(nAxId)) {
+            AscFormat.Ax_Counter.GLOBAL_AX_ID_COUNTER = Math.max(nAxId, AscFormat.Ax_Counter.GLOBAL_AX_ID_COUNTER);
+        }
+    }
 
     var SCALE_INSET_COEFF = 1.016;//Возможно придется уточнять
     function CDLbl() {
@@ -4626,25 +4631,62 @@ function CPlotArea()
         return [oCatAx, oValAx];
     };
     CPlotArea.prototype.createHBarAxes = function(sNewNumFormat) {
-        var aAxes = this.createCatValAxes(sNewNumFormat);
-        var oCatAx = aAxes[0], oValAx = aAxes[1];
-        if(oValAx.axPos !== AX_POS_T && oValAx.axPos !== AX_POS_B) {
-            oValAx.setAxPos(AX_POS_B);
+        var aHAxes = this.createCatValAxes(sNewNumFormat);
+        var oCatAx = aHAxes[0], oValAx = aHAxes[1];
+        var aAxes = this.axId;
+        var nAx, oAx;
+        oValAx.setAxPos(AX_POS_B);
+        oCatAx.setAxPos(AX_POS_L);
+        oCatAx.setDelete(true);
+        for(nAx = 0; nAx < aAxes.length; ++nAx) {
+            oAx = aAxes[nAx];
+            if(oAx.axPos === AX_POS_B || oAx.axPos === AX_POS_T) {
+                if(oAx.axPos === AX_POS_B) {
+                    oValAx.setAxPos(AX_POS_T);
+                }
+                else {
+                    oValAx.setAxPos(AX_POS_B);
+                }
+                if(oAx.crosses === null ||oAx.crosses === CROSSES_AUTO_ZERO || oAx.crosses === CROSSES_MIN) {
+                    oValAx.setCrosses(CROSSES_MAX);
+                }
+                else {
+                    oValAx.setCrosses(CROSSES_AUTO_ZERO);
+                }
+            }
         }
-        if(oCatAx.axPos !== AX_POS_L && oCatAx.axPos !== AX_POS_R) {
-            oCatAx.setAxPos(AX_POS_L);
-        }
+
+        oValAx.setMajorGridlines(null);
+        oValAx.setMinorGridlines(null);
         return [oCatAx, oValAx];
     };
     CPlotArea.prototype.createRegularAxes = function(sNewNumFormat) {
-        var aAxes = this.createCatValAxes(sNewNumFormat);
-        var oCatAx = aAxes[0], oValAx = aAxes[1];
-        if(oValAx.axPos !== AX_POS_L && oValAx.axPos !== AX_POS_R) {
-            oValAx.setAxPos(AX_POS_L);
+        var aRegAxes = this.createCatValAxes(sNewNumFormat);
+        var oCatAx = aRegAxes[0], oValAx = aRegAxes[1];
+        var aAxes = this.axId;
+        var nAx, oAx;
+        oValAx.setAxPos(AX_POS_L);
+        oCatAx.setAxPos(AX_POS_B);
+        oCatAx.setDelete(true);
+        for(nAx = 0; nAx < aAxes.length; ++nAx) {
+            oAx = aAxes[nAx];
+            if(oAx.axPos === AX_POS_L || oAx.axPos === AX_POS_R) {
+                if(oAx.axPos === AX_POS_L) {
+                    oValAx.setAxPos(AX_POS_R);
+                }
+                else {
+                    oValAx.setAxPos(AX_POS_L);
+                }
+                if(oAx.crosses === null ||oAx.crosses === CROSSES_AUTO_ZERO || oAx.crosses === CROSSES_MIN) {
+                    oValAx.setCrosses(CROSSES_MAX);
+                }
+                else {
+                    oValAx.setCrosses(CROSSES_AUTO_ZERO);
+                }
+            }
         }
-        if(oCatAx.axPos !== AX_POS_T && oCatAx.axPos !== AX_POS_B) {
-            oCatAx.setAxPos(AX_POS_B);
-        }
+        oValAx.setMajorGridlines(null);
+        oValAx.setMinorGridlines(null);
         return [oCatAx, oValAx];
     };
     CPlotArea.prototype.createScatterAxes = function() {
@@ -4653,13 +4695,46 @@ function CPlotArea()
         if(aMergeAxes) {
             oAxes.catAx.merge(aMergeAxes[0]);
             oAxes.valAx.merge(aMergeAxes[1]);
-            if(oAxes.valAx.axPos !== AX_POS_L && oAxes.valAx.axPos !== AX_POS_R) {
-                oAxes.valAx.setAxPos(AX_POS_L);
+        }
+        var aAxes = this.axId;
+        var nAx, oAx;
+        oAxes.valAx.setAxPos(AX_POS_L);
+        oAxes.catAx.setAxPos(AX_POS_B);
+        for(nAx = 0; nAx < aAxes.length; ++nAx) {
+            oAx = aAxes[nAx];
+            if(oAx.axPos === AX_POS_L || oAx.axPos === AX_POS_R) {
+                if(oAx.axPos === AX_POS_L) {
+                    oAxes.valAx.setAxPos(AX_POS_R);
+                }
+                else {
+                    oAxes.valAx.setAxPos(AX_POS_L);
+                }
+                if(oAx.crosses === null ||oAx.crosses === CROSSES_AUTO_ZERO || oAx.crosses === CROSSES_MIN) {
+                    oAxes.valAx.setCrosses(CROSSES_MAX);
+                }
+                else {
+                    oAxes.valAx.setCrosses(CROSSES_AUTO_ZERO);
+                }
             }
-            if(oAxes.catAx.axPos !== AX_POS_T && oAxes.catAx.axPos !== AX_POS_B) {
-                oAxes.catAx.setAxPos(AX_POS_B);
+            else {
+                if(oAx.axPos === AX_POS_T) {
+                    oAxes.catAx.setAxPos(AX_POS_B);
+                }
+                else {
+                    oAxes.catAx.setAxPos(AX_POS_T);
+                }
+                if(oAx.crosses === null ||oAx.crosses === CROSSES_AUTO_ZERO || oAx.crosses === CROSSES_MIN) {
+                    oAxes.catAx.setCrosses(CROSSES_MAX);
+                }
+                else {
+                    oAxes.catAx.setCrosses(CROSSES_AUTO_ZERO);
+                }
             }
         }
+        oAxes.valAx.setMajorGridlines(null);
+        oAxes.valAx.setMinorGridlines(null);
+        oAxes.catAx.setMajorGridlines(null);
+        oAxes.catAx.setMinorGridlines(null);
         return [oAxes.catAx, oAxes.valAx];
     };
     CPlotArea.prototype.createSurfaceAxes = function(sNewNumFormat) {
@@ -5213,7 +5288,7 @@ function CPlotArea()
             if(this.series.length === 0) {
                 this.parent.removeChart(this);
             }
-            this.parent.addChart(oNewChart, 0);
+            this.parent.addChart(oNewChart, null);
             nResult = Asc.c_oAscError.ID.No;
         }
         return nResult;
@@ -5242,7 +5317,7 @@ function CPlotArea()
         if(this.tryMoveSeries(oSeries, nChartType, bIsSecondaryAxis)) {
             return Asc.c_oAscError.ID.No;
         }
-        return this.tryCreateNewChartFormSeries(oSeries, nType, bIsSecondaryAxis);
+        return this.tryCreateNewChartFormSeries(oSeries, this.getChartType(), bIsSecondaryAxis);
     };
     CChartBase.prototype.tryChangeType = function(nNewType) {
         if(!this.parent) {
@@ -6576,6 +6651,7 @@ function CCatAx()
     {
         History.Add(new CChangesDrawingsLong(this, AscDFH.historyitem_CatAxSetAxId, this.axId, pr));
         this.axId = pr;
+        checkAxIdCounter(pr);
     };
     CCatAx.prototype.setAxPos = function(pr)
     {
@@ -6984,7 +7060,7 @@ function CDateAx()
     {
         History.Add(new CChangesDrawingsString(this, AscDFH.historyitem_DateAxAxId, this.axId, pr));
         this.axId = pr;
-
+        checkAxIdCounter(pr);
     };
     CDateAx.prototype.setAxPos = function(pr)
     {
@@ -7400,6 +7476,7 @@ function CSerAx()
     {
         History.Add(new CChangesDrawingsLong(this, AscDFH.historyitem_SerAxSetAxId, this.axId, pr));
         this.axId = pr;
+        checkAxIdCounter(pr);
     };
     CSerAx.prototype.setAxPos = function(pr)
     {
@@ -7774,6 +7851,7 @@ function CValAx()
     {
         History.Add(new CChangesDrawingsLong(this, AscDFH.historyitem_ValAxSetAxId, this.axId, pr));
         this.axId = pr;
+        checkAxIdCounter(pr);
     };
     CValAx.prototype.setAxPos = function(pr)
     {
